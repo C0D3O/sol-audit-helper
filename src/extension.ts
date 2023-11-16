@@ -200,8 +200,7 @@ const globalEdit = async () => {
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
-	const foldersToSkip = /(lib|out|openzeppelin|node_modules|.git)/;
-	const combinedRegex = new RegExp(`${cwd}/${foldersToSkip.source}`);
+	const combinedRegex = new RegExp(`${cwd}/(lib|out|node_modules|.git|forge_cache)`);
 
 	watcher.onDidCreate(async (e) => {
 		// skip unneded files
