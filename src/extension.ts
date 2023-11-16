@@ -6,6 +6,9 @@ import { rename, mkdir } from 'node:fs/promises';
 
 import { pathLogic, pathLogic2 } from './utils';
 
+const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
+console.log(cwd);
+
 let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
 console.log(skipImports);
 
@@ -32,7 +35,7 @@ const watcherLogic = async (e: Uri) => {
 		}
 	}
 
-	const regexSubtract = new RegExp(`^${workspace.workspaceFolders![0].uri.path.slice(1)}(\/)?`);
+	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
 	// const skipRegexp = new RegExp(/^import\s*{?[^"]*}?\s*from\s*"\s*(@|hardhat|lib|halmos|forge|openzeppelin)[^"]*"\s*;/);
 
@@ -140,7 +143,7 @@ const globalEdit = async () => {
 	allFiles = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 	console.log('Finished moving, starting editing paths');
 
-	const regexSubtract = new RegExp(`^${workspace.workspaceFolders![0].uri.path.slice(1)}(\/)?`);
+	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
 
 	for await (let file of allFiles) {
@@ -199,7 +202,6 @@ const globalEdit = async () => {
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
-	const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
 	const foldersToSkip = /(lib|out|openzeppelin|node_modules|.git)/;
 	const combinedRegex = new RegExp(`${cwd}/${foldersToSkip.source}`);
 
@@ -215,8 +217,7 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 
 export function activate(context: ExtensionContext) {
 	let disposable = commands.registerCommand('sol-paths-helper', async () => {
-		const folders = workspace.workspaceFolders![0].uri.path.slice(1);
-		const watcher = workspace.createFileSystemWatcher(new RelativePattern(folders, '**/*.sol'));
+		const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
 		try {
 			// search for scope files
@@ -256,7 +257,7 @@ export function activate(context: ExtensionContext) {
 				throw Error('Scope folder already exists, skipping to watcher');
 			}
 
-			const thePath = workspace.workspaceFolders![0].uri.path.slice(1);
+			// const thePath = workspace.workspaceFolders![0].uri.path.slice(1);
 			// // show info message
 			// await window.showWarningMessage(`Working... ${allFiles.length} files to move`);
 			console.log(foundryBaseFolder);
@@ -274,7 +275,7 @@ export function activate(context: ExtensionContext) {
 				}
 				const scopeFileName = path.basename(line.replace('\r', ''));
 
-				let oldPath = line.toString()[0] === '/' ? thePath + line.replace('\r', '') : thePath + '/' + line.replace('\r', '');
+				let oldPath = line.toString()[0] === '/' ? cwd + line.replace('\r', '') : cwd + '/' + line.replace('\r', '');
 				const newPath = foundryBaseFolder + '/src/scope/' + scopeFileName;
 
 				await new Promise(async (resolve) => {
