@@ -18,13 +18,9 @@ const excludePattern = [
 
 const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
 // console.log(cwd);
-
 let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
-// console.log(skipImports);
 
-let foundryBaseFolder: string = '';
-
-const skipRegexp = new RegExp(`^import\s*{?[^"}]*}?\s*(?:from\s*)?"\s*(${skipImports})[^"]*"\s*;`);
+const skipRegexp = new RegExp(`^import\\s*(?:{[^{}]*})?\\s*(?:from\\s*)?["'](${skipImports})[^"']*\\.sol["'];`);
 
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
@@ -52,7 +48,6 @@ const watcherLogic = async (e: Uri) => {
 						newLines.push(line);
 						continue;
 					}
-					console.log(line);
 
 					for await (let file of filesToWatch) {
 						// filter out the newly moved file
@@ -221,6 +216,12 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 
 export function activate(context: ExtensionContext) {
 	let disposable = commands.registerCommand('sol-paths-helper', async () => {
+		// console.log(skipImports);
+
+		let foundryBaseFolder: string = '';
+
+		// const skipRegexp = new RegExp(`^import\s*{?[^"}]*}?\s*(?:from\s*)?"\s*(${skipImports})[^"]*"\s*;`);
+
 		try {
 			// search for scope files
 			const excludePattern = [
@@ -235,11 +236,11 @@ export function activate(context: ExtensionContext) {
 			const foundryConfig = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
 			const hardhatConfig = await workspace.findFiles('**/hardhat.config.{js,ts}', `{${excludePattern.join(',')}}`);
-			console.log(hardhatConfig);
+			// console.log(hardhatConfig);
 
-			console.log('CONFIG');
+			// console.log('CONFIG');
 
-			console.log(foundryConfig);
+			// console.log(foundryConfig);
 
 			if (scopeFiles.length > 1) {
 				throw Error('More than 2 scope files');
