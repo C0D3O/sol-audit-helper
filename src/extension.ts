@@ -211,10 +211,15 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 		// skip unneded files
 		console.log('REGEXP', combinedRegex);
 		console.log('CREATED', e.fsPath);
+		appendFileSync('./1.txt', `JSON!!!!, ${JSON.stringify(e.fsPath)}\n`);
 
-		if (path.basename(e.path).includes('.sol') && !combinedRegex.test(e.path.slice(1))) {
-			appendFileSync('./1.txt', `MATCHES, ${e.path.slice(1)}\n`);
-			console.log('MATCHES', e.path.slice(1));
+		if (
+			(path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) ||
+			!/\\d:\\Coding\\2023-11-kelp\\out\\/.test(e.fsPath) ||
+			!/\\d:\\Coding\\2023-11-kelp\\lib\\/.test(e.fsPath)
+		) {
+			appendFileSync('./1.txt', `MATCHES, ${e.fsPath}\n`);
+			console.log('MATCHES', JSON.stringify(e.fsPath));
 			// channel.sendText(`MATCHES ${e.path.slice(1)}`);
 
 			await watcherLogic(e);
