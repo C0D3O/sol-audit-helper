@@ -1,0 +1,57 @@
+{
+	"name": "solidity-paths-helper",
+	"displayName": "Solidity Paths Helper",
+	"description": "Automatically updates all sol files imports on file movement",
+	"version": "0.3.6",
+	"author": "C0D30",
+	"repository": "https://github.com/C0D3O/sol-paths-helper",
+	"engines": {
+		"vscode": "^1.84.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "sol-paths-helper",
+				"title": "sol-paths-helper"
+			}
+		],
+		"configuration": {
+			"title": "Solidity Paths Helper",
+			"properties": {
+				"sol-paths-helper.skipImports": {
+					"type": "string",
+					"default": "@|hardhat|lib|halmos|forge|openzeppelin",
+					"markdownDescription": "Specifies the import paths to skip. Basically here should be all lib names. Add keywords separated by | symbol without spaces. Do not leave blank."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint src --ext ts",
+		"test": "node ./out/test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/fs-extra": "^11.0.4",
+		"@types/mocha": "^10.0.3",
+		"@types/node": "18.x",
+		"@types/vscode": "^1.84.0",
+		"@typescript-eslint/eslint-plugin": "^6.9.0",
+		"@typescript-eslint/parser": "^6.9.0",
+		"@vscode/test-electron": "^2.3.6",
+		"eslint": "^8.52.0",
+		"glob": "^10.3.10",
+		"mocha": "^10.2.0",
+		"typescript": "^5.2.2"
+	}
+}
