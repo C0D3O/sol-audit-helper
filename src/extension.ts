@@ -199,11 +199,13 @@ const globalEdit = async () => {
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
-	watcher.onDidCreate(async (e) => {
-		const cwd = new RegExp(`${workspace.workspaceFolders![0].uri.path.slice(1)}/(lib|out|openzeppelin|node_modules)/`);
+	const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
+	const foldersToSkip = /(lib|out|openzeppelin|node_modules)/;
+	const combinedRegex = new RegExp(`${cwd}/${foldersToSkip.source}`);
 
+	watcher.onDidCreate(async (e) => {
 		// skip unneded files
-		if (path.basename(e.path).includes('.sol') && !cwd.test(e.path)) {
+		if (path.basename(e.path).includes('.sol') && !combinedRegex.test(e.path)) {
 			console.log('MATCHES', e.path.slice(1));
 
 			await watcherLogic(e);
