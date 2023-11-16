@@ -1,4 +1,4 @@
-# Solidity paths helper README
+# Solidity Paths Helper
 
 ## Features
 
@@ -12,7 +12,7 @@ An extension for helping auditors freely move solidity files without needing to 
 
 ## Extension Settings
 
-Press f1 and find the sol-paths-helper command to activate the extension
+Press F1, find the sol-paths-helper command and run it to activate the extension
 
 ## Known Issues
 
