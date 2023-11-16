@@ -1,7 +1,7 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
 
 import path from 'node:path';
-import { existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
 import { pathLogic, pathLogic2 } from './utils';
@@ -19,6 +19,8 @@ const excludePattern = [
 const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
 // console.log(cwd);
 let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
+
+appendFileSync('./1.txt', `${cwd}\n`);
 
 const skipRegexp = new RegExp(`^import\\s*(?:{[^{}]*})?\\s*(?:from\\s*)?["'](${skipImports})[^"']*\\.sol["'];`);
 
@@ -46,8 +48,11 @@ const watcherLogic = async (e: Uri) => {
 				if (regexp.test(line)) {
 					if (skipRegexp.test(line)) {
 						newLines.push(line);
+						console.log('SKIPPED', line);
+
 						continue;
 					}
+					console.log('NOT SKIPPED', line);
 
 					for await (let file of filesToWatch) {
 						// filter out the newly moved file
@@ -200,11 +205,15 @@ const globalEdit = async () => {
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
-	const combinedRegex = new RegExp(`${cwd}/(lib|out|node_modules|.git|forge_cache)`);
+	const combinedRegex = new RegExp(`${cwd}/(lib|out|node_modules|.git|cache_forge)`);
 
 	watcher.onDidCreate(async (e) => {
 		// skip unneded files
-		if (path.basename(e.path).includes('.sol') && !combinedRegex.test(e.path)) {
+		console.log('REGEXP', combinedRegex);
+		console.log('CREATED', e.fsPath);
+
+		if (path.basename(e.path).includes('.sol') && !combinedRegex.test(e.path.slice(1))) {
+			appendFileSync('./1.txt', `MATCHES, ${e.path.slice(1)}\n`);
 			console.log('MATCHES', e.path.slice(1));
 			// channel.sendText(`MATCHES ${e.path.slice(1)}`);
 
