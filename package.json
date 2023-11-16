@@ -28,7 +28,7 @@
 			"properties": {
 				"sol-paths-helper.skipImports": {
 					"type": "string",
-					"default": "@|hardhat|lib|halmos|forge|openzeppelin",
+					"default": "@|hardhat|lib|halmos|forge|openzeppelin|forge-std",
 					"markdownDescription": "Specifies the import paths to skip. Basically here should be all lib names. Add keywords separated by | symbol without spaces. Do not leave blank."
 				}
 			}
