@@ -200,7 +200,7 @@ const globalEdit = async () => {
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
 	const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
-	const foldersToSkip = /(lib|out|openzeppelin|node_modules)/;
+	const foldersToSkip = /(lib|out|openzeppelin|node_modules|.git)/;
 	const combinedRegex = new RegExp(`${cwd}/${foldersToSkip.source}`);
 
 	watcher.onDidCreate(async (e) => {
