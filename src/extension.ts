@@ -1,4 +1,4 @@
-import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
+import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window } from 'vscode';
 
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync } from 'node:fs';
@@ -12,14 +12,11 @@ console.log(cwd);
 let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
 console.log(skipImports);
 
-const excludePattern = [
-	'**/node_modules/**',
-	'**/lib/**',
-	'**/out/**',
-	'**/.git/**',
-	'**/openzeppelin-contracts-upgradeable/**',
-	'**/openzeppelin-contracts/**',
-];
+// let channel = window.createTerminal();
+
+//Write to output.
+// channel.sendText(`CWD IS ${cwd}`);
+// channel.sendText(`SKIPIMPORTS ARE ${skipImports}`);
 
 let allFiles: Uri[] = [];
 let foundryBaseFolder: string = '';
@@ -27,6 +24,14 @@ let foundryBaseFolder: string = '';
 const skipRegexp = new RegExp(`^import\\s*{?[^"}]*}?\\s*from\\s*"\\s*(${skipImports})[^"]*"\\s*;`);
 
 const watcherLogic = async (e: Uri) => {
+	const excludePattern = [
+		'**/node_modules/**',
+		'**/lib/**',
+		'**/out/**',
+		'**/.git/**',
+		'**/openzeppelin-contracts-upgradeable/**',
+		'**/openzeppelin-contracts/**',
+	];
 	const filesToWatch = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 
 	for await (let file of filesToWatch) {
@@ -140,6 +145,14 @@ const watcherLogic = async (e: Uri) => {
 };
 
 const globalEdit = async () => {
+	const excludePattern = [
+		'**/node_modules/**',
+		'**/lib/**',
+		'**/out/**',
+		'**/.git/**',
+		'**/openzeppelin-contracts-upgradeable/**',
+		'**/openzeppelin-contracts/**',
+	];
 	allFiles = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 	console.log('Finished moving, starting editing paths');
 
@@ -209,6 +222,7 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 		// skip unneded files
 		if (path.basename(e.path).includes('.sol') && !combinedRegex.test(e.path)) {
 			console.log('MATCHES', e.path.slice(1));
+			// channel.sendText(`MATCHES ${e.path.slice(1)}`);
 
 			await watcherLogic(e);
 		}
@@ -221,6 +235,14 @@ export function activate(context: ExtensionContext) {
 
 		try {
 			// search for scope files
+			const excludePattern = [
+				'**/node_modules/**',
+				'**/lib/**',
+				'**/out/**',
+				'**/.git/**',
+				'**/openzeppelin-contracts-upgradeable/**',
+				'**/openzeppelin-contracts/**',
+			];
 			const scopeFiles = await workspace.findFiles('**/scope.*', `{${excludePattern.join(',')}}`);
 			const foundryConfig = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
