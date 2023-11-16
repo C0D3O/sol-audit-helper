@@ -1,4 +1,4 @@
-import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window } from 'vscode';
+import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
 
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync } from 'node:fs';
@@ -17,10 +17,10 @@ const excludePattern = [
 ];
 
 const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
-console.log(cwd);
+// console.log(cwd);
 
 let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
-console.log(skipImports);
+// console.log(skipImports);
 
 let foundryBaseFolder: string = '';
 
