@@ -206,14 +206,17 @@ const globalEdit = async () => {
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
-	const combinedRegex = new RegExp(`${cwd}/(lib|out|node_modules|.git|cache_forge).*`, 'i');
+	console.log(cwd);
+	const winCwd = cwd.replaceAll('/', '\\\\');
+	console.log(winCwd);
+
+	const combinedRegex = new RegExp(`${winCwd}\\\\(lib|out|node_modules|.git|cache_forge).*`, 'i');
 	console.log(combinedRegex);
 
 	watcher.onDidCreate(async (e) => {
 		// skip unneded files
 		console.log('REGEXP', combinedRegex);
 		console.log('CREATED', e.fsPath);
-		appendFileSync('./1.txt', `JSON!!!!, ${JSON.stringify(e.fsPath)}\n`);
 
 		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
 			appendFileSync('./1.txt', `MATCHES, ${e.fsPath}\n`);
