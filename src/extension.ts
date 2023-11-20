@@ -26,7 +26,6 @@ const skipImports = ['@', 'hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', '
 
 skipImports.push(...getFolders(`${cwd}/lib`));
 console.log(skipImports.join('|'));
-appendFileSync('./1.txt', skipImports.join('|'));
 
 // let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
 
