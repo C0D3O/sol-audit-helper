@@ -222,8 +222,8 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 
 	watcher.onDidCreate(async (e) => {
 		// skip unneded files
-		console.log('REGEXP', combinedRegex);
-		console.log('CREATED', e.fsPath);
+		// console.log('REGEXP', combinedRegex);
+		// console.log('CREATED', e.fsPath);
 
 		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
 			appendFileSync('./1.txt', `MATCHES, ${e.fsPath}\n`);
