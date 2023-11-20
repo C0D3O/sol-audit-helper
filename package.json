@@ -2,7 +2,7 @@
 	"name": "solidity-paths-helper",
 	"displayName": "Solidity Paths Helper",
 	"description": "Automatically updates all sol files imports on file movement",
-	"version": "0.3.4",
+	"version": "0.3.5",
 	"author": "C0D30",
 	"publisher": "C0D30",
 	"repository": "https://github.com/C0D3O/sol-paths-helper",
@@ -28,7 +28,7 @@
 			"properties": {
 				"sol-paths-helper.skipImports": {
 					"type": "string",
-					"default": "@|hardhat|lib|halmos|forge|openzeppelin|forge-std|solady",
+					"default": "@|hardhat|lib|halmos|forge|openzeppelin|forge-std|solady|solmate",
 					"markdownDescription": "Specifies the import paths to skip. Basically here should be all lib names. Add keywords separated by | symbol without spaces. Do not leave blank."
 				}
 			}
