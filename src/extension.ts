@@ -1,7 +1,7 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
 
 import path from 'node:path';
-import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
 import { getFolders, osPathFixer, pathLogic, pathLogic2 } from './utils';
@@ -25,7 +25,7 @@ const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cac
 const skipImports = ['@', 'hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
 
 skipImports.push(...getFolders(`${cwd}/lib`));
-console.log(skipImports.join('|'));
+// console.log(skipImports.join('|'));
 
 // let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
 
@@ -55,11 +55,11 @@ const watcherLogic = async (e: Uri) => {
 				if (regexp.test(line)) {
 					if (skipRegexp.test(line)) {
 						newLines.push(line);
-						console.log('SKIPPED', line);
+						// console.log('SKIPPED', line);
 
 						continue;
 					}
-					console.log('NOT SKIPPED', line);
+					// console.log('NOT SKIPPED', line);
 
 					for await (let file of filesToWatch) {
 						// filter out the newly moved file
@@ -151,7 +151,7 @@ const globalEdit = async () => {
 		'**/openzeppelin-contracts/**',
 	];
 	const allFiles = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
-	console.log('Finished moving, starting editing paths');
+	// console.log('Finished moving, starting editing paths');
 
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
@@ -230,8 +230,8 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 		// console.log('CREATED', e.fsPath);
 
 		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
-			appendFileSync('./1.txt', `MATCHES, ${e.fsPath}\n`);
-			console.log('MATCHES', JSON.stringify(e.fsPath));
+			// appendFileSync('./1.txt', `MATCHES, ${e.fsPath}\n`);
+			// console.log('MATCHES', JSON.stringify(e.fsPath));
 			// channel.sendText(`MATCHES ${osPathFixer(e.path)}`);
 
 			await watcherLogic(e);
@@ -265,7 +265,7 @@ export function activate(context: ExtensionContext) {
 
 			// console.log('CONFIG');
 
-			console.log(foundryConfig);
+			// console.log(foundryConfig);
 
 			if (scopeFiles.length > 1) {
 				throw Error('More than 2 scope files');
@@ -296,7 +296,7 @@ export function activate(context: ExtensionContext) {
 			// const thePath = workspace.workspaceFolders![0].uri.path.slice(1);
 			// // show info message
 			// await window.showWarningMessage(`Working... ${allFiles.length} files to move`);
-			console.log(foundryBaseFolder);
+			// console.log(foundryBaseFolder);
 
 			if (!existsSync(foundryBaseFolder + '/src/scope/')) {
 				await mkdir(foundryBaseFolder + '/src/scope/', { recursive: true });
