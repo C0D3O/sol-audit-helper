@@ -1,3 +1,6 @@
+export const osPathFixer = (path: string): string => {
+	return process.platform === 'win32' ? path.slice(1) : path;
+};
 // LOGIC FOR THE MOVED FILE !!!
 const diffLevelsLogic = (
 	anotherFilePathLength: number,

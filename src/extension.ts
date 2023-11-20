@@ -4,7 +4,7 @@ import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
-import { pathLogic, pathLogic2 } from './utils';
+import { osPathFixer, pathLogic, pathLogic2 } from './utils';
 
 const excludePattern = [
 	'**/node_modules/**',
@@ -16,7 +16,8 @@ const excludePattern = [
 	'**/cache_forge/**',
 ];
 
-const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
+// const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
+const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 // console.log(cwd);
 let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
 
@@ -24,6 +25,7 @@ appendFileSync('./1.txt', `${cwd}\n`);
 
 const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${skipImports}).*\\.sol["'];`, 'i');
 console.log(skipRegexp);
+console.log('PLATFROM', process.platform);
 
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
@@ -75,8 +77,8 @@ const watcherLogic = async (e: Uri) => {
 						const depName = path.basename(line.split('"')[1]);
 
 						if (depName === fileName) {
-							const otherFilePath = file.path.slice(1).replace(regexSubtract, '');
-							const movedFilePath = e.path.slice(1).replace(regexSubtract, '');
+							const otherFilePath = osPathFixer(file.path).replace(regexSubtract, '');
+							const movedFilePath = osPathFixer(e.path).replace(regexSubtract, '');
 
 							line = pathLogic(otherFilePath, movedFilePath, depName, line, theBracesImport);
 						}
@@ -114,8 +116,8 @@ const watcherLogic = async (e: Uri) => {
 				const depName = path.basename(line.split('"')[1]);
 
 				if (movedFileName === depName) {
-					const pathOfAFileToEdit = file.path.slice(1).replace(regexSubtract, '');
-					const newPath = e.path.slice(1).replace(regexSubtract, '');
+					const pathOfAFileToEdit = osPathFixer(file.path).replace(regexSubtract, '');
+					const newPath = osPathFixer(e.path).replace(regexSubtract, '');
 
 					line = pathLogic2(pathOfAFileToEdit, newPath, depName, line, theBracesImport);
 				}
@@ -184,8 +186,8 @@ const globalEdit = async () => {
 
 					if (depName === path.basename(innerFile.path)) {
 						// TYT ERROR!!!!!!!!
-						const currentFilePath = file.path.slice(1).replace(regexSubtract, '');
-						const otherFilePath = innerFile.path.slice(1).replace(regexSubtract, '');
+						const currentFilePath = osPathFixer(file.path).replace(regexSubtract, '');
+						const otherFilePath = osPathFixer(innerFile.path).replace(regexSubtract, '');
 						// console.log('CURRENT FILE PATH', currentFilePath);
 						// console.log('OTHER FILE PATH', otherFilePath);
 
@@ -207,10 +209,15 @@ const globalEdit = async () => {
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
 	console.log(cwd);
+
 	const winCwd = cwd.replaceAll('/', '\\\\');
 	console.log(winCwd);
 
-	const combinedRegex = new RegExp(`${winCwd}\\\\(lib|out|node_modules|.git|cache_forge).*`, 'i');
+	const combinedRegex =
+		process.platform === 'win32'
+			? new RegExp(`${winCwd}\\\\(lib|out|node_modules|.git|cache_forge).*`, 'i')
+			: new RegExp(`${cwd}/(lib|out|node_modules|.git|cache_forge).*`, 'i');
+
 	console.log(combinedRegex);
 
 	watcher.onDidCreate(async (e) => {
@@ -221,7 +228,7 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
 			appendFileSync('./1.txt', `MATCHES, ${e.fsPath}\n`);
 			console.log('MATCHES', JSON.stringify(e.fsPath));
-			// channel.sendText(`MATCHES ${e.path.slice(1)}`);
+			// channel.sendText(`MATCHES ${osPathFixer(e.path)}`);
 
 			await watcherLogic(e);
 		}
@@ -254,7 +261,7 @@ export function activate(context: ExtensionContext) {
 
 			// console.log('CONFIG');
 
-			// console.log(foundryConfig);
+			console.log(foundryConfig);
 
 			if (scopeFiles.length > 1) {
 				throw Error('More than 2 scope files');
@@ -267,17 +274,17 @@ export function activate(context: ExtensionContext) {
 					if (!hardhatConfig.length) {
 						throw Error('No configs found');
 					} else if (!foundryConfig.length && hardhatConfig.length === 1) {
-						const tempString = hardhatConfig[0].path.slice(1).split('/');
+						const tempString = osPathFixer(hardhatConfig[0].path).split('/');
 
 						foundryBaseFolder = tempString.join('/');
 					}
 				}
 			} else if (foundryConfig.length === 1) {
-				const tempString = foundryConfig[0].path.slice(1).split('/');
+				const tempString = process.platform === 'win32' ? osPathFixer(foundryConfig[0].path).split('/') : foundryConfig[0].path.split('/');
 				tempString.pop();
 				foundryBaseFolder = tempString.join('/');
 			}
-
+			// log
 			if (existsSync(foundryBaseFolder + '/src/scope/')) {
 				throw Error('Scope folder already exists, skipping to watcher');
 			}
