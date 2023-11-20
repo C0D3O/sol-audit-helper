@@ -1,7 +1,7 @@
 {
 	"name": "solidity-paths-helper",
 	"displayName": "Solidity Paths Helper",
-	"description": "Automatically updates all sol files imports on file movement",
+	"description": "Automatically updates sol files imports on file movement",
 	"version": "0.3.8",
 	"author": "C0D30",
 	"publisher": "C0D30",
