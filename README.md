@@ -18,4 +18,5 @@ Press F1, find the sol-paths-helper command and run it to activate the extension
 
 - Doesn't support simultaneous multiple files, or a folder movement for now.
 - No throwing errors for now - the extension won't trigger any popups
+
   **Enjoy!**
