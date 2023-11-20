@@ -4,7 +4,7 @@ import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
-import { osPathFixer, pathLogic, pathLogic2 } from './utils';
+import { getFolders, osPathFixer, pathLogic, pathLogic2 } from './utils';
 
 const excludePattern = [
 	'**/node_modules/**',
@@ -19,13 +19,18 @@ const excludePattern = [
 // const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
 const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 // console.log(cwd);
-let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
 
-appendFileSync('./1.txt', `${cwd}\n`);
+const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cache'];
 
-const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${skipImports}).*\\.sol["'];`, 'i');
-console.log(skipRegexp);
-console.log('PLATFROM', process.platform);
+const skipImports = ['@', 'hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
+
+skipImports.push(...getFolders(`${cwd}/lib`));
+console.log(skipImports.join('|'));
+appendFileSync('./1.txt', skipImports.join('|'));
+
+// let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
+
+const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${skipImports.join('|')}).*\\.sol["'];`, 'i');
 
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
@@ -215,8 +220,8 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 
 	const combinedRegex =
 		process.platform === 'win32'
-			? new RegExp(`${winCwd}\\\\(lib|out|node_modules|.git|cache_forge).*`, 'i')
-			: new RegExp(`${cwd}/(lib|out|node_modules|.git|cache_forge).*`, 'i');
+			? new RegExp(`${winCwd}\\\\(${foldersToSkip.join('|')}).*`, 'i')
+			: new RegExp(`${cwd}/(${foldersToSkip.join('|')}).*`, 'i');
 
 	console.log(combinedRegex);
 

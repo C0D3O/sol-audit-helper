@@ -1,3 +1,10 @@
+import { readdirSync } from 'fs';
+
+export const getFolders = (source: string) =>
+	readdirSync(source, { withFileTypes: true })
+		.filter((dirent) => dirent.isDirectory())
+		.map((dirent) => dirent.name);
+
 export const osPathFixer = (path: string): string => {
 	return process.platform === 'win32' ? path.slice(1) : path;
 };
