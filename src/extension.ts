@@ -16,21 +16,23 @@ const excludePattern = [
 	'**/cache_forge/**',
 ];
 
-// const cwd = workspace.workspaceFolders![0].uri.path.slice(1);
 const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
-// console.log(cwd);
 
+/// REGEXP VARS
+///
 const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cache'];
 
 const skipImports = ['@', 'hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
-
 skipImports.push(...getFolders(`${cwd}/lib`));
-// console.log(skipImports.join('|'));
-
-// let skipImports = workspace.getConfiguration('sol-paths-helper').get('skipImports');
 
 const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${skipImports.join('|')}).*\\.sol["'];`, 'i');
 
+const callRegexp = new RegExp(/.*\.(call|delegatecall)({.*})?\(/i);
+const uncheckedReturnRegexp = new RegExp(/^\(bool\s.*\=/i);
+const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
+///
+///
+let shouldBeSkipped = false;
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
 const watcherLogic = async (e: Uri) => {
@@ -52,7 +54,23 @@ const watcherLogic = async (e: Uri) => {
 			const lines = movedFileContent.split('\n');
 
 			for await (let line of lines) {
-				if (regexp.test(line)) {
+				if (shouldBeSkipped) {
+					newLines.push(line);
+					shouldBeSkipped = false;
+					continue;
+				} else if (alreadyBookmarkedLine.test(line)) {
+					shouldBeSkipped = true;
+					newLines.push(line);
+					continue;
+				} else if (callRegexp.test(line)) {
+					const origLine = line;
+					line = '// @audit-info CALL\n' + origLine;
+					if (!uncheckedReturnRegexp.test(origLine)) {
+						line = '// @audit-issue unchecked return\n' + origLine;
+					}
+					newLines.push(line);
+					continue;
+				} else if (regexp.test(line)) {
 					if (skipRegexp.test(line)) {
 						newLines.push(line);
 						// console.log('SKIPPED', line);
@@ -105,7 +123,25 @@ const watcherLogic = async (e: Uri) => {
 		const lines = aFileContent.split('\n');
 		let newLines = [];
 		for await (let line of lines) {
-			if (regexp.test(line)) {
+			if (shouldBeSkipped) {
+				newLines.push(line);
+				shouldBeSkipped = false;
+				continue;
+			} else if (alreadyBookmarkedLine.test(line)) {
+				shouldBeSkipped = true;
+				newLines.push(line);
+				continue;
+			} else if (callRegexp.test(line)) {
+				const origLine = line;
+				line = '// @audit-info CALL\n' + origLine;
+				if (!uncheckedReturnRegexp.test(origLine)) {
+					console.log('me here');
+
+					line = '// @audit-issue unchecked return\n' + origLine;
+				}
+				newLines.push(line);
+				continue;
+			} else if (regexp.test(line)) {
 				if (skipRegexp.test(line)) {
 					newLines.push(line);
 					continue;
@@ -163,8 +199,27 @@ const globalEdit = async () => {
 		const lines = fileContent.split('\n');
 
 		for await (let line of lines) {
+			if (shouldBeSkipped) {
+				newLines.push(line);
+				shouldBeSkipped = false;
+				continue;
+			} else if (alreadyBookmarkedLine.test(line)) {
+				shouldBeSkipped = true;
+				newLines.push(line);
+				continue;
+			} else if (callRegexp.test(line)) {
+				const origLine = line;
+				line = '// @audit-info CALL\n' + origLine;
+				if (!uncheckedReturnRegexp.test(origLine)) {
+					console.log('me here');
+
+					line = '// @audit-issue unchecked return\n' + origLine;
+				}
+				newLines.push(line);
+				continue;
+			}
 			// if file has imports
-			if (regexp.test(line)) {
+			else if (regexp.test(line)) {
 				// skip lib imports
 				if (skipRegexp.test(line)) {
 					newLines.push(line);
@@ -212,28 +267,15 @@ const globalEdit = async () => {
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
-	console.log(cwd);
-
 	const winCwd = cwd.replaceAll('/', '\\\\');
-	console.log(winCwd);
 
 	const combinedRegex =
 		process.platform === 'win32'
 			? new RegExp(`${winCwd}\\\\(${foldersToSkip.join('|')}).*`, 'i')
 			: new RegExp(`${cwd}/(${foldersToSkip.join('|')}).*`, 'i');
 
-	console.log(combinedRegex);
-
 	watcher.onDidCreate(async (e) => {
-		// skip unneded files
-		// console.log('REGEXP', combinedRegex);
-		// console.log('CREATED', e.fsPath);
-
 		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
-			// appendFileSync('./1.txt', `MATCHES, ${e.fsPath}\n`);
-			// console.log('MATCHES', JSON.stringify(e.fsPath));
-			// channel.sendText(`MATCHES ${osPathFixer(e.path)}`);
-
 			await watcherLogic(e);
 		}
 	});
@@ -241,11 +283,7 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 
 export function activate(context: ExtensionContext) {
 	let disposable = commands.registerCommand('sol-paths-helper', async () => {
-		// console.log(skipImports);
-
 		let foundryBaseFolder: string = '';
-
-		// const skipRegexp = new RegExp(`^import\s*{?[^"}]*}?\s*(?:from\s*)?"\s*(${skipImports})[^"]*"\s*;`);
 
 		try {
 			// search for scope files
@@ -261,11 +299,6 @@ export function activate(context: ExtensionContext) {
 			const foundryConfig = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
 			const hardhatConfig = await workspace.findFiles('**/hardhat.config.{js,ts}', `{${excludePattern.join(',')}}`);
-			// console.log(hardhatConfig);
-
-			// console.log('CONFIG');
-
-			// console.log(foundryConfig);
 
 			if (scopeFiles.length > 1) {
 				throw Error('More than 2 scope files');
@@ -288,15 +321,9 @@ export function activate(context: ExtensionContext) {
 				tempString.pop();
 				foundryBaseFolder = tempString.join('/');
 			}
-			// log
 			if (existsSync(foundryBaseFolder + '/src/scope/')) {
 				throw Error('Scope folder already exists, skipping to watcher');
 			}
-
-			// const thePath = workspace.workspaceFolders![0].uri.path.slice(1);
-			// // show info message
-			// await window.showWarningMessage(`Working... ${allFiles.length} files to move`);
-			// console.log(foundryBaseFolder);
 
 			if (!existsSync(foundryBaseFolder + '/src/scope/')) {
 				await mkdir(foundryBaseFolder + '/src/scope/', { recursive: true });
