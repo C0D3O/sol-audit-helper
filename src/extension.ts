@@ -296,7 +296,7 @@ export function activate(context: ExtensionContext) {
 				'**/openzeppelin-contracts/**',
 			];
 			const scopeFiles = await workspace.findFiles('**/scope.*', `{${excludePattern.join(',')}}`);
-			const foundryConfig = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
+			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
 			const hardhatConfig = await workspace.findFiles('**/hardhat.config.{js,ts}', `{${excludePattern.join(',')}}`);
 
@@ -306,36 +306,40 @@ export function activate(context: ExtensionContext) {
 			} else if (scopeFiles.length === 0) {
 				throw Error('No scope file');
 			}
+			console.log(foundryConfigs.length);
+			console.log(foundryConfigs);
 
-			if (foundryConfig.length > 1 || !foundryConfig.length) {
+			if (foundryConfigs.length > 1 || !foundryConfigs.length) {
 				{
 					if (!hardhatConfig.length) {
 						throw Error('No configs found');
-					} else if (!foundryConfig.length && hardhatConfig.length === 1) {
+					} else if (!foundryConfigs.length && hardhatConfig.length === 1) {
 						const tempString = osPathFixer(hardhatConfig[0].path).split('/');
 
 						foundryBaseFolder = tempString.join('/');
 					}
 				}
-			} else if (foundryConfig.length === 1) {
-				const tempString = process.platform === 'win32' ? osPathFixer(foundryConfig[0].path).split('/') : foundryConfig[0].path.split('/');
+			} else if (foundryConfigs.length === 1) {
+				const tempString = process.platform === 'win32' ? osPathFixer(foundryConfigs[0].path).split('/') : foundryConfigs[0].path.split('/');
 				tempString.pop();
 				foundryBaseFolder = tempString.join('/');
 
 				// reading config file to get the src path
-				const foundryConfigContent = readFileSync(foundryConfig[0].fsPath, 'utf8');
-
-				const configLines = foundryConfigContent.split('\n');
+				const foundryConfigContent = readFileSync(foundryConfigs[0].fsPath, 'utf8');
 
 				const srcRegexp = new RegExp(/^src(\s)?=(\s)?["']/i);
 				const matchRegexp = new RegExp(/'(.*)'|"(.*)"/g);
 
+				const configLines = foundryConfigContent.split('\n');
 				for await (let line of configLines) {
+					console.log(line);
+
 					if (line.replace('\r', '').length === 0 || !srcRegexp.test(line)) {
 						continue;
 					} else {
 						neededPath = line.match(matchRegexp)![0].slice(1, -1);
-						console.log(neededPath);
+
+						console.log('NEEDED PATH', neededPath);
 					}
 				}
 			}
