@@ -25,12 +25,9 @@ const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cac
 // const skipImports = ['@', 'hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
 const skipImports = ['hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
 skipImports.push(...getFolders(`${cwd}/lib`));
+const importsToSkip = skipImports.map((skipImport) => skipImports.push('@' + skipImport));
 
-for (let skipImport of skipImports) {
-	skipImports.push('@' + skipImport);
-}
-
-const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${skipImports.join('|')}).*\\.sol["'];`, 'i');
+const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${importsToSkip.join('|')}).*\\.sol["'];`, 'i');
 
 const callRegexp = new RegExp(/.*\.(call|delegatecall)({.*})?\(/i);
 const uncheckedReturnRegexp = new RegExp(/(\s)?\(bool\s.*\=/i);
