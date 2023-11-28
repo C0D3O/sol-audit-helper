@@ -40,9 +40,12 @@ const watcherLogic = async (e: Uri) => {
 
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s(?:{.*}\sfrom\s)?["'].*\.sol["'];/i);
+	console.log(filesToWatch.length);
 
 	for await (let file of filesToWatch) {
 		// filter out the newly moved file
+		console.log(file.fsPath);
+
 		const fileName = path.basename(file.path);
 		const movedFileName = path.basename(e.path);
 
@@ -54,23 +57,7 @@ const watcherLogic = async (e: Uri) => {
 			const lines = movedFileContent.split('\n');
 
 			for await (let line of lines) {
-				if (shouldBeSkipped) {
-					newLines.push(line);
-					shouldBeSkipped = false;
-					continue;
-				} else if (alreadyBookmarkedLine.test(line)) {
-					shouldBeSkipped = true;
-					newLines.push(line);
-					continue;
-				} else if (callRegexp.test(line)) {
-					const origLine = line;
-					line = '// @audit-info CALL\n' + origLine;
-					if (!uncheckedReturnRegexp.test(origLine)) {
-						line = '// @audit-issue unchecked return\n' + origLine;
-					}
-					newLines.push(line);
-					continue;
-				} else if (regexp.test(line)) {
+				if (regexp.test(line)) {
 					if (skipRegexp.test(line)) {
 						newLines.push(line);
 						// console.log('SKIPPED', line);
@@ -113,6 +100,7 @@ const watcherLogic = async (e: Uri) => {
 			try {
 				writeFileSync(file.fsPath, updatedData, 'utf8');
 				newLines = [];
+				continue;
 			} catch (error) {
 				console.log('WRITING ERROR', error);
 			}
@@ -123,25 +111,7 @@ const watcherLogic = async (e: Uri) => {
 		const lines = aFileContent.split('\n');
 		let newLines = [];
 		for await (let line of lines) {
-			if (shouldBeSkipped) {
-				newLines.push(line);
-				shouldBeSkipped = false;
-				continue;
-			} else if (alreadyBookmarkedLine.test(line)) {
-				shouldBeSkipped = true;
-				newLines.push(line);
-				continue;
-			} else if (callRegexp.test(line)) {
-				const origLine = line;
-				line = '// @audit-info CALL\n' + origLine;
-				if (!uncheckedReturnRegexp.test(origLine)) {
-					console.log('me here');
-
-					line = '// @audit-issue unchecked return\n' + origLine;
-				}
-				newLines.push(line);
-				continue;
-			} else if (regexp.test(line)) {
+			if (regexp.test(line)) {
 				if (skipRegexp.test(line)) {
 					newLines.push(line);
 					continue;
@@ -173,8 +143,6 @@ const watcherLogic = async (e: Uri) => {
 			console.log('WRITING ERROR', error);
 		}
 	}
-
-	// allFiles = [];
 };
 
 const globalEdit = async () => {
@@ -276,6 +244,8 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 
 	watcher.onDidCreate(async (e) => {
 		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
+			console.log('MATCH', e.fsPath);
+
 			await watcherLogic(e);
 		}
 	});
