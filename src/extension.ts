@@ -28,7 +28,7 @@ skipImports.push(...getFolders(`${cwd}/lib`));
 const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${skipImports.join('|')}).*\\.sol["'];`, 'i');
 
 const callRegexp = new RegExp(/.*\.(call|delegatecall)({.*})?\(/i);
-const uncheckedReturnRegexp = new RegExp(/^\(bool\s.*\=/i);
+const uncheckedReturnRegexp = new RegExp(/(\s)?\(bool\s.*\=/i);
 const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
 ///
 ///
@@ -300,6 +300,7 @@ export function activate(context: ExtensionContext) {
 
 			const hardhatConfig = await workspace.findFiles('**/hardhat.config.{js,ts}', `{${excludePattern.join(',')}}`);
 
+			let neededPath = '';
 			if (scopeFiles.length > 1) {
 				throw Error('More than 2 scope files');
 			} else if (scopeFiles.length === 0) {
@@ -320,13 +321,31 @@ export function activate(context: ExtensionContext) {
 				const tempString = process.platform === 'win32' ? osPathFixer(foundryConfig[0].path).split('/') : foundryConfig[0].path.split('/');
 				tempString.pop();
 				foundryBaseFolder = tempString.join('/');
+
+				// reading config file to get the src path
+				const foundryConfigContent = readFileSync(foundryConfig[0].fsPath, 'utf8');
+
+				const configLines = foundryConfigContent.split('\n');
+
+				const srcRegexp = new RegExp(/^src(\s)?=(\s)?["']/i);
+				const matchRegexp = new RegExp(/'(.*)'|"(.*)"/g);
+
+				for await (let line of configLines) {
+					if (line.replace('\r', '').length === 0 || !srcRegexp.test(line)) {
+						continue;
+					} else {
+						neededPath = line.match(matchRegexp)![0].slice(1, -1);
+						console.log(neededPath);
+					}
+				}
 			}
-			if (existsSync(foundryBaseFolder + '/src/scope/')) {
+
+			if (existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
 				throw Error('Scope folder already exists, skipping to watcher');
 			}
 
-			if (!existsSync(foundryBaseFolder + '/src/scope/')) {
-				await mkdir(foundryBaseFolder + '/src/scope/', { recursive: true });
+			if (!existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
+				await mkdir(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/', { recursive: true });
 			}
 
 			const scopeFileContent = readFileSync(scopeFiles[0].fsPath, 'utf8');
@@ -339,7 +358,9 @@ export function activate(context: ExtensionContext) {
 				const scopeFileName = path.basename(line.replace('\r', ''));
 
 				let oldPath = line.toString()[0] === '/' ? cwd + line.replace('\r', '') : cwd + '/' + line.replace('\r', '');
-				const newPath = foundryBaseFolder + '/src/scope/' + scopeFileName;
+				const newPath = neededPath.length
+					? foundryBaseFolder + `/${neededPath}/scope/` + scopeFileName
+					: foundryBaseFolder + '/src/scope/' + scopeFileName;
 
 				await new Promise(async (resolve) => {
 					let success = false;
