@@ -22,8 +22,13 @@ const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 ///
 const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cache'];
 
-const skipImports = ['@', 'hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
+// const skipImports = ['@', 'hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
+const skipImports = ['hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
 skipImports.push(...getFolders(`${cwd}/lib`));
+
+for (let skipImport of skipImports) {
+	skipImports.push('@' + skipImport);
+}
 
 const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](${skipImports.join('|')}).*\\.sol["'];`, 'i');
 
