@@ -1,9 +1,9 @@
 # Change Log
 
-All notable changes to the "sol-paths-helper" extension will be documented in this file.
+## [0.4.3]
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+- Added looking for call in contracts marking it as @audit-ok for checked return calls and @audit-issue for unchecked ones. Use with inline bookmarks extension to have the bookmarks in the toolbars for easy navigation
 
-## [Unreleased]
+- Improved logic
 
-- Initial release
+- Added src path reading from the foundry config to place the scope folder inside of it
