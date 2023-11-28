@@ -33,18 +33,16 @@ const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
 ///
 ///
 let shouldBeSkipped = false;
-const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
+const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 const watcherLogic = async (e: Uri) => {
 	const filesToWatch = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s(?:{.*}\sfrom\s)?["'].*\.sol["'];/i);
-	console.log(filesToWatch.length);
 
 	for await (let file of filesToWatch) {
 		// filter out the newly moved file
-		console.log(file.fsPath);
 
 		const fileName = path.basename(file.path);
 		const movedFileName = path.basename(e.path);
@@ -155,7 +153,6 @@ const globalEdit = async () => {
 		'**/openzeppelin-contracts/**',
 	];
 	const allFiles = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
-	// console.log('Finished moving, starting editing paths');
 
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
@@ -179,8 +176,6 @@ const globalEdit = async () => {
 				const origLine = line;
 				line = '// @audit-info CALL\n' + origLine;
 				if (!uncheckedReturnRegexp.test(origLine)) {
-					console.log('me here');
-
 					line = '// @audit-issue unchecked return\n' + origLine;
 				}
 				newLines.push(line);
@@ -212,7 +207,6 @@ const globalEdit = async () => {
 					const depName = path.basename(line.split('"')[1]);
 
 					if (depName === path.basename(innerFile.path)) {
-						// TYT ERROR!!!!!!!!
 						const currentFilePath = osPathFixer(file.path).replace(regexSubtract, '');
 						const otherFilePath = osPathFixer(innerFile.path).replace(regexSubtract, '');
 						// console.log('CURRENT FILE PATH', currentFilePath);
@@ -244,8 +238,6 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 
 	watcher.onDidCreate(async (e) => {
 		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
-			console.log('MATCH', e.fsPath);
-
 			await watcherLogic(e);
 		}
 	});
