@@ -28,6 +28,7 @@ skipImports.push(...getFolders(`${cwd}/lib`));
 const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](\b(@?)${skipImports.join('|')}\b).*\\.sol["'];`, 'i');
 
 const callRegexp = new RegExp(/.*\.(call|delegatecall)({.*})?\(/i);
+const balanceCheckRegexp = new RegExp(/(?=.*(>|<|>=|<=|==))(?=.*balance).*/i);
 const uncheckedReturnRegexp = new RegExp(/(\s)?\(bool\s.*\=/i);
 const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
 ///
@@ -178,6 +179,11 @@ const globalEdit = async () => {
 				if (!uncheckedReturnRegexp.test(origLine)) {
 					line = '// @audit-issue unchecked return\n' + origLine;
 				}
+				newLines.push(line);
+				continue;
+			} else if (balanceCheckRegexp.test(line)) {
+				// const origLine = line;
+				line = '// @audit-info BALANCE CHECK\n' + line;
 				newLines.push(line);
 				continue;
 			}
