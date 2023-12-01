@@ -198,3 +198,72 @@ export const pathLogic2 = (currentFilePath: string, anotherFilePath: string, dep
 	}
 	return line;
 };
+
+export const htmlTemplate = `
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="./styles.css">
+        <title>Graph</title>
+    </head>
+
+    <body>
+        <section class="graph">
+`;
+export const cssTemplate = `
+* {
+	margin: 0;
+	box-sizing: border-box;
+}
+
+body {
+	background-color: blanchedalmond;
+}
+.graph {
+	width: 100%;
+}
+.fullFile {
+	margin: 0.4em;
+}
+.fullFunc {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	border: 3px solid grey;
+	border-radius: 10px;
+	margin: 0.5em;
+	padding: 0.3em;
+}
+.functions {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+}
+
+.func {
+	border: 3px solid rgb(73, 73, 73);
+	border-radius: 7px;
+	margin: 1em;
+	padding: 0.5em;
+	font-size: 1.125rem;
+	width: fit-content;
+}
+.fileName {
+	text-align: center;
+}
+.external {
+	background-color: rgb(124, 124, 175);
+}
+.payable {
+	background-color: tomato;
+}
+.pure {
+	background-color: grey;
+}
+.inheritance {
+	background-color: chartreuse;
+}
+`;
