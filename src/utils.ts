@@ -222,9 +222,6 @@ export const cssTemplate = `
 body {
 	background-color: blanchedalmond;
 }
-.graph {
-	width: 100%;
-}
 .fullFile {
 	margin: 0.4em;
 }
@@ -240,7 +237,6 @@ body {
 .functions {
 	display: flex;
 	flex-direction: row;
-	flex-wrap: wrap;
 }
 
 .func {
@@ -263,7 +259,22 @@ body {
 .pure {
 	background-color: grey;
 }
+.contract-inheritance {
+	background-color: orange;
+	border: 3px solid rgb(178, 43, 43);
+	width: fit-content;
+	margin: 1em;
+	padding: 0.5em;
+}
+.contract-inheritance__funcs {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+}
 .inheritance {
 	background-color: chartreuse;
+}
+.inh-text{
+	text-align: center;
 }
 `;
