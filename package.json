@@ -2,7 +2,7 @@
 	"name": "solidity-paths-helper",
 	"displayName": "Solidity Paths Helper",
 	"description": "Automatically updates sol files imports on file movement",
-	"version": "0.4.5",
+	"version": "0.4.6",
 	"author": "C0D30",
 	"publisher": "C0D30",
 	"repository": "https://github.com/C0D3O/sol-paths-helper",

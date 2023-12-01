@@ -13,7 +13,10 @@ const excludePattern = [
 	'**/.git/**',
 	'**/openzeppelin-contracts-upgradeable/**',
 	'**/openzeppelin-contracts/**',
+	'**/artifacts/**',
+	'**/coverage/**',
 	'**/cache_forge/**',
+	'**/cache/**',
 ];
 
 const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
