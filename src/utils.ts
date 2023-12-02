@@ -207,11 +207,13 @@ export const htmlTemplate = `
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="./styles.css">
+		<script defer src="script.js"/>
         <title>Graph</title>
     </head>
 
     <body>
         <section class="graph">
+		<svg id='fullsvg'></svg>
 `;
 export const cssTemplate = `
 * {
@@ -222,8 +224,17 @@ export const cssTemplate = `
 body {
 	background-color: blanchedalmond;
 }
+#fullsvg {
+	left: 0px;
+	top: 0px;
+	position: fixed;
+	margin: 0;
+	pointer-events: none;
+}
+
 .fullFile {
 	margin: 0.4em;
+	width: fit-content;
 }
 .fullFunc {
 	display: flex;
@@ -234,9 +245,17 @@ body {
 	margin: 0.5em;
 	padding: 0.3em;
 }
-.functions {
+.functionsPlusInh{
 	display: flex;
 	flex-direction: row;
+	width: fit-content;
+	justify-content: space-between;
+	align-items: center;
+}
+.functions {
+	display: flex;
+	flex-direction: column;
+	width: fit-content;
 }
 
 .func {
@@ -277,4 +296,32 @@ body {
 .inh-text{
 	text-align: center;
 }
+.inh-parent {
+	padding: 0.3em;
+	margin: 0.5em;
+	border: 1px solid grey;
+	border-radius: 50%;
+	width: fit-content;
+	height: fit-content;
+}
+`;
+export const jsTemplate = `
+const allElements = document.querySelectorAll('.functionsPlusInh');
+
+allElements.forEach((el) => {
+	const b1 = el.querySelector('.fullFunc').getBoundingClientRect();
+	console.log(b1);
+	const b2 = el.querySelector('.inh-parent')?.getBoundingClientRect();
+	if (b2) {
+		const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+		newLine.setAttribute('id', 'line1');
+		newLine.setAttribute('x1', b1.left + b1.width / 2);
+		newLine.setAttribute('y1', b1.top + b1.height / 2);
+		newLine.setAttribute('x2', b2.left + b2.width / 2);
+		newLine.setAttribute('y2', b2.top + b2.height / 2);
+		newLine.setAttribute('style', 'stroke: black; stroke-width: 2;');
+		document.getElementById('fullsvg').append(newLine);
+	}
+});
+
 `;
