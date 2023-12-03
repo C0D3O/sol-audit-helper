@@ -1,6 +1,6 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
 
-import path from 'node:path';
+import path, { resolve } from 'node:path';
 import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
@@ -166,7 +166,7 @@ const globalEdit = async (scopeNames: string[]) => {
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
 
 	const functionExtractorRegexp = new RegExp(/(^|s+)?\bfunction\b\s.*\(.*\).*\{[^}]*}/g);
-	const constructorExtractorRegexp = new RegExp(/(?<=(^|\s+)?\bconstructor\b\(.*\)\s?\{)([^}]*).*(?=\})/g);
+	const constructorExtractorRegexp = new RegExp(/(?<=(?:^|\s+)?\bconstructor\b\(.*\))\s+(?:(\w+)\(.*)?(?:\{)(\s?[^}]*).*(?=\})/g);
 	// CONTRACT IS REGEXP
 	const contractInheritanceRegexp = new RegExp(/(?<=^contract .* is )[\w*(?:\,\s)]+(?={)/gm);
 	writeFileSync(`${cwd}/styles.css`, cssTemplate);
@@ -193,33 +193,29 @@ const globalEdit = async (scopeNames: string[]) => {
 			const bracketsImportRegexp = new RegExp(/\{([^{}]+)\}.*?\/?([^/]+)\.sol/gm);
 			// CHECK FULL IMPORTS
 			const fullImportNames = fileContent.match(fullImportRegexp);
-			if (fullImportNames?.length) {
-				console.log('FULL IMPORT NAMES', fullImportNames);
-				console.log('FULL IMPORTS CHECKED');
-			}
+			// if (fullImportNames?.length) {
+			// 	console.log('FULL IMPORT NAMES', fullImportNames);
+			// 	console.log('FULL IMPORTS CHECKED');
+			// }
+
 			// CHECK BRACKET IMPORTS
+			let separatedBracketImportNames: string[] = [];
 			const bracketImportNames = fileContent.matchAll(bracketsImportRegexp);
+			const bracketImportNamesLength = Array.from({ ...bracketImportNames });
 			for await (let bracketImportName of bracketImportNames) {
 				const importNamesFromBrackets = bracketImportName[1];
 				const contractContainingTheBracketImports = bracketImportName[2];
 
 				if (importNamesFromBrackets.includes(',')) {
-					const separatedBracketImportNames = importNamesFromBrackets.split(',').map((name) => name.trim());
-					console.log(separatedBracketImportNames);
-
-					if (separatedBracketImportNames.length) {
-						for await (let separatedName of separatedBracketImportNames) {
-							console.log(separatedName);
-						}
-					}
+					separatedBracketImportNames = importNamesFromBrackets.split(',').map((name) => name.trim());
 				} else {
-					const importNamesFromBracketsTrimmed = importNamesFromBrackets.trim();
-					console.log(importNamesFromBracketsTrimmed);
+					separatedBracketImportNames.push(importNamesFromBrackets.trim());
 				}
-				console.log(contractContainingTheBracketImports);
-				console.log('BRACKED IMPORTS CHECKED');
-			}
 
+				separatedBracketImportNames.forEach((item) => console.log('BRACKET ITEM', item));
+				console.log(contractContainingTheBracketImports);
+				console.log('Brackets IMPORTS CHECKED');
+			}
 			// CHECK INHERITANCE IMPORTS
 			const contractInheritance = fileContent.match(contractInheritanceRegexp);
 
@@ -229,28 +225,36 @@ const globalEdit = async (scopeNames: string[]) => {
 					if (inheritanceFile.includes(',')) {
 						inheritancesArray = inheritanceFile.split(',').map((name) => name.trim());
 					} else {
-						console.log('INHERITANCE', inheritanceFile);
+						inheritancesArray.push(inheritanceFile.trim());
 					}
 				}
-				if (inheritancesArray.length) {
-					for await (let inheritanceFile of inheritancesArray) {
-						console.log('INHERITANCE', inheritanceFile);
-					}
-					console.log('INHERITANCE IMPORTS CHECKED');
-				}
+				// if (inheritancesArray.length) {
+				// 	for await (let inheritanceFile of inheritancesArray) {
+				// 		console.log('INHERITANCE', inheritanceFile);
+				// 	}
+				// 	console.log('INHERITANCE IMPORTS CHECKED');
+				// }
 			}
 
-			// const allFuncs = fileContent.match(functionExtractorRegexp);
+			// CHECK CONSTRUCTORS FOR INIT AND CONTENT
+			const allConstuctorsImports = fileContent.matchAll(constructorExtractorRegexp);
+			for await (let constuctorImport of allConstuctorsImports) {
+				const constInitializer = constuctorImport[1];
+				const constContent = constuctorImport[2];
+				// console.log('INITIALIZER', constInitializer);
+				// console.log('CONTENT', constContent);
+			}
 
-			// const allConstuctors = fileContent.match(constructorExtractorRegexp);
+			// CHECK FUNCTIONS FOR INIT AND CONTENT
+			const allFuncs = fileContent.match(functionExtractorRegexp);
 
 			// let inhParents: string[] = [];
 
-			//
-			//
-			// if (importList.length || inheritancesArray.length || allFuncs?.length) {
-			// 	appendFileSync(`${cwd}/graph.html`, `<div class='fullFile'>`); // closed
+			if (fullImportNames?.length || bracketImportNamesLength.length || inheritancesArray.length || allFuncs?.length) {
+				appendFileSync(`${cwd}/graph.html`, `<div class='fullFile'>`);
 
+				// closed
+			}
 			// 	if (allFuncs?.length) {
 			// 		// add header to graph if a file has functions
 			// 		appendFileSync(`${cwd}/graph.html`, `<div class='fileName'><h3>${fileName}</h3></div>`); // closed
