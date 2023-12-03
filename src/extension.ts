@@ -185,46 +185,66 @@ const globalEdit = async (scopeNames: string[]) => {
 		//use the last element to GET THE NAME OF THE FILE TO SEARCH FOR OTHER ELEMENTS CONTRACTS and read their content to compare to current files content
 		// if it's a full import  -  push the name into fullImports array
 
-		// push all imports into an array
+		// check all the inheritance imports
 
 		if (scopeNames.includes(fileName)) {
 			// CHECK IMPORTS!!!
 			const fullImportRegexp = new RegExp(/(?<=^\bimport\b\s+?["'].?\/?)\w+(?=.sol)/gm);
 			const bracketsImportRegexp = new RegExp(/\{([^{}]+)\}.*?\/?([^/]+)\.sol/gm);
-
+			// CHECK FULL IMPORTS
 			const fullImportNames = fileContent.match(fullImportRegexp);
-			console.log(fullImportNames);
-
+			if (fullImportNames?.length) {
+				console.log('FULL IMPORT NAMES', fullImportNames);
+				console.log('FULL IMPORTS CHECKED');
+			}
+			// CHECK BRACKET IMPORTS
 			const bracketImportNames = fileContent.matchAll(bracketsImportRegexp);
 			for await (let bracketImportName of bracketImportNames) {
 				const importNamesFromBrackets = bracketImportName[1];
+				const contractContainingTheBracketImports = bracketImportName[2];
+
 				if (importNamesFromBrackets.includes(',')) {
 					const separatedBracketImportNames = importNamesFromBrackets.split(',').map((name) => name.trim());
-					console.log(separatedBracketImportNames[0]);
-					console.log(separatedBracketImportNames[1]);
-					console.log(separatedBracketImportNames[2]);
+					console.log(separatedBracketImportNames);
+
+					if (separatedBracketImportNames.length) {
+						for await (let separatedName of separatedBracketImportNames) {
+							console.log(separatedName);
+						}
+					}
+				} else {
+					const importNamesFromBracketsTrimmed = importNamesFromBrackets.trim();
+					console.log(importNamesFromBracketsTrimmed);
 				}
-				const contractContainingTheBracketImports = bracketImportName[2];
 				console.log(contractContainingTheBracketImports);
+				console.log('BRACKED IMPORTS CHECKED');
 			}
 
-			// importList CONTAINS ALL IMPORTS
-			// console.log(importList);
+			// CHECK INHERITANCE IMPORTS
+			const contractInheritance = fileContent.match(contractInheritanceRegexp);
 
-			// check contract inheritrance
-			const contractInheritance = fileContent.matchAll(contractInheritanceRegexp);
-			const inheritanceLength = Array.from(contractInheritance).length;
 			let inheritancesArray: string[] = [];
-			if (inheritanceLength) {
-				const inheritances = fileContent.matchAll(contractInheritanceRegexp);
-				inheritancesArray = Array.from(inheritances)[0].toString().split(', ');
+			if (contractInheritance?.length) {
+				for await (let inheritanceFile of contractInheritance) {
+					if (inheritanceFile.includes(',')) {
+						inheritancesArray = inheritanceFile.split(',').map((name) => name.trim());
+					} else {
+						console.log('INHERITANCE', inheritanceFile);
+					}
+				}
+				if (inheritancesArray.length) {
+					for await (let inheritanceFile of inheritancesArray) {
+						console.log('INHERITANCE', inheritanceFile);
+					}
+					console.log('INHERITANCE IMPORTS CHECKED');
+				}
 			}
 
-			const allFuncs = fileContent.match(functionExtractorRegexp);
+			// const allFuncs = fileContent.match(functionExtractorRegexp);
 
-			const allConstuctors = fileContent.match(constructorExtractorRegexp);
+			// const allConstuctors = fileContent.match(constructorExtractorRegexp);
 
-			let inhParents: string[] = [];
+			// let inhParents: string[] = [];
 
 			//
 			//
