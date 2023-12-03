@@ -207,29 +207,29 @@ export const htmlTemplate = `
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="./styles.css">
-		<script defer src="script.js"/>
+		<script defer src="script.js"></script>
         <title>Graph</title>
     </head>
 
     <body>
         <section class="graph">
-		<svg id='fullsvg'></svg>
-`;
+	`;
 export const cssTemplate = `
 * {
 	margin: 0;
+	padding: 0;
 	box-sizing: border-box;
 }
 
 body {
-	background-color: blanchedalmond;
+	background: rgb(60, 1, 102);
+	background: linear-gradient(8deg, rgba(60, 1, 102, 0.8139706566220238) 0%, rgba(0, 238, 255, 1) 200%);
+	height: 100vh;
 }
-#fullsvg {
-	left: 0px;
-	top: 0px;
-	position: fixed;
-	margin: 0;
+.fullsvg {
 	pointer-events: none;
+	position: absolute;
+	z-index: -1;
 }
 
 .fullFile {
@@ -237,15 +237,17 @@ body {
 	width: fit-content;
 }
 .fullFunc {
+	background-color: rgb(168, 205, 244);
 	display: flex;
 	flex-direction: row;
+	justify-content: center;
 	flex-wrap: wrap;
 	border: 3px solid grey;
 	border-radius: 10px;
 	margin: 0.5em;
 	padding: 0.3em;
 }
-.functionsPlusInh{
+.functionsPlusInh {
 	display: flex;
 	flex-direction: row;
 	width: fit-content;
@@ -293,10 +295,11 @@ body {
 .inheritance {
 	background-color: chartreuse;
 }
-.inh-text{
+.inh-text {
 	text-align: center;
 }
 .inh-parent {
+	background-color: antiquewhite;
 	padding: 0.3em;
 	margin: 0.5em;
 	border: 1px solid grey;
@@ -304,24 +307,42 @@ body {
 	width: fit-content;
 	height: fit-content;
 }
+
 `;
 export const jsTemplate = `
-const allElements = document.querySelectorAll('.functionsPlusInh');
+window.onload = () => {
+	let counter = 1;
+	const funcPlusInh = document.querySelectorAll('.functionsPlusInh');
+	const section = document.querySelector('section');
+	//FOR EACH FILE
+	funcPlusInh.forEach((el) => {
+		// IF IT HAS INH PARENT
+		if (el.querySelector('.inh-parent')) {
+			const lineContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			lineContainer.setAttribute('class', 'fullsvg');
+			lineContainer.setAttribute('width', '100%');
+			lineContainer.setAttribute('height', '100%');
+			const inhCoord = el.querySelector('.inh-parent').getBoundingClientRect();
 
-allElements.forEach((el) => {
-	const b1 = el.querySelector('.fullFunc').getBoundingClientRect();
-	console.log(b1);
-	const b2 = el.querySelector('.inh-parent')?.getBoundingClientRect();
-	if (b2) {
-		const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-		newLine.setAttribute('id', 'line1');
-		newLine.setAttribute('x1', b1.left + b1.width / 2);
-		newLine.setAttribute('y1', b1.top + b1.height / 2);
-		newLine.setAttribute('x2', b2.left + b2.width / 2);
-		newLine.setAttribute('y2', b2.top + b2.height / 2);
-		newLine.setAttribute('style', 'stroke: black; stroke-width: 2;');
-		document.getElementById('fullsvg').append(newLine);
-	}
-});
+			const allFullFuncs = el.querySelectorAll('.fullFunc');
+			allFullFuncs.forEach((funcEl) => {
+				const funcCoord = funcEl.getBoundingClientRect();
 
+				const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+
+				newLine.setAttribute('id', 'line' + counter);
+				newLine.setAttribute('x1', funcCoord.left + funcCoord.width / 2);
+				newLine.setAttribute('y1', funcCoord.top + funcCoord.height / 2);
+				newLine.setAttribute('x2', inhCoord.left + inhCoord.width / 2);
+				newLine.setAttribute('y2', inhCoord.top + inhCoord.height / 2);
+				newLine.setAttribute('style', 'stroke: red; stroke-width: 4;');
+
+				lineContainer.append(newLine);
+				section.prepend(lineContainer);
+
+				counter++;
+			});
+		}
+	});
+};
 `;
