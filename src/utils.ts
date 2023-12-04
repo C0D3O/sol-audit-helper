@@ -224,7 +224,6 @@ export const cssTemplate = `
 body {
 	background: rgb(60, 1, 102);
 	background: linear-gradient(8deg, rgba(60, 1, 102, 0.8139706566220238) 0%, rgba(0, 238, 255, 1) 200%);
-	height: 100vh;
 }
 .fullsvg {
 	pointer-events: none;
@@ -275,10 +274,13 @@ body {
 	background-color: rgb(124, 124, 175);
 }
 .payable {
-	background-color: tomato;
+	background-color: #79a471;
 }
 .pure {
 	background-color: grey;
+}
+.modifier {
+	background-color: #c8d470;
 }
 .contract-inheritance {
 	background-color: orange;

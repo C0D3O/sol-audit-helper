@@ -165,10 +165,10 @@ const globalEdit = async (scopeNames: string[]) => {
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
 
-	const functionExtractorRegexp = new RegExp(/(^|s+)?\bfunction\b\s.*\(.*\).*\{[^}]*}/g);
+	const functionAndModifierExtractorRegexp = new RegExp(/(^|s+)?(\bfunction\b\s|\bmodifier\b\s).*\(.*\).*\{[^}]*}/g);
 	const constructorExtractorRegexp = new RegExp(/(?<=(?:^|\s+)?\bconstructor\b\(.*\))\s+(?:(\w+)\(.*)?(?:\{)(\s?[^}]*).*(?=\})/g);
 	// CONTRACT IS REGEXP
-	const contractInheritanceRegexp = new RegExp(/(?<=^contract .* is )[\w*(?:\,\s)]+(?={)/gm);
+	const contractInheritanceRegexp = new RegExp(/(?<=^contract .* is )([\w*(?:\,\s)]+)(?={)/gm);
 	writeFileSync(`${cwd}/styles.css`, cssTemplate);
 	writeFileSync(`${cwd}/script.js`, jsTemplate);
 	writeFileSync(`${cwd}/graph.html`, htmlTemplate);
@@ -189,7 +189,6 @@ const globalEdit = async (scopeNames: string[]) => {
 
 		if (scopeNames.includes(fileName)) {
 			// THE MAIN ARRAY TO STORE ALL THE IMPORTS INHERITANCE ETC
-
 			let importsAndInheritanceArray: string[] = [];
 
 			// CHECK IMPORTS!!!
@@ -201,40 +200,43 @@ const globalEdit = async (scopeNames: string[]) => {
 			if (fullImportNames?.length) {
 				for await (let fullImportName of fullImportNames) {
 					importsAndInheritanceArray.push(fullImportName);
+					console.log(fullImportName);
 				}
 			}
 
 			// CHECK BRACKET IMPORTS
-			let separatedBracketImportNames: string[] = [];
-			const bracketImportNames = fileContent.matchAll(bracketsImportRegexp);
-			const bracketImportNamesLength = Array.from({ ...bracketImportNames });
-			for await (let bracketImportName of bracketImportNames) {
-				const importNamesFromBrackets = bracketImportName[1];
-				const contractContainingTheBracketImports = bracketImportName[2];
+			// let separatedBracketImportNames: string[] = [];
+			// const bracketImportNames = fileContent.matchAll(bracketsImportRegexp);
+			// const bracketImportNamesLength = Array.from({ ...bracketImportNames });
+			// for await (let bracketImportName of bracketImportNames) {
+			// 	const importNamesFromBrackets = bracketImportName[1];
+			// 	const contractContainingTheBracketImports = bracketImportName[2];
 
-				if (importNamesFromBrackets.includes(',')) {
-					separatedBracketImportNames = importNamesFromBrackets
-						.split(',')
-						.map((name) => name.trim() + ' from ' + contractContainingTheBracketImports);
-				} else {
-					separatedBracketImportNames.push(importNamesFromBrackets.trim() + ' from ' + contractContainingTheBracketImports);
-				}
+			// 	if (importNamesFromBrackets.includes(',')) {
+			// 		separatedBracketImportNames = importNamesFromBrackets
+			// 			.split(',')
+			// 			.map((name) => name.trim() + ' from ' + contractContainingTheBracketImports);
+			// 	} else {
+			// 		separatedBracketImportNames.push(importNamesFromBrackets.trim() + ' from ' + contractContainingTheBracketImports);
+			// 	}
 
-				// separatedBracketImportNames.forEach((item) => console.log('BRACKET ITEM', item));
-				// console.log(contractContainingTheBracketImports);
-				// console.log('Brackets IMPORTS CHECKED');
-			}
-			// AND ADD THEM TO THE MAIN ARRAY ( IT CAN HAVE 'IMPORT' from 'FILE')
+			// 	// separatedBracketImportNames.forEach((item) => console.log('BRACKET ITEM', item));
+			// 	// console.log(contractContainingTheBracketImports);
+			// 	// console.log('Brackets IMPORTS CHECKED');
+			// }
+			// // AND ADD THEM TO THE MAIN ARRAY ( IT CAN HAVE 'IMPORT' from 'FILE')
 
-			if (separatedBracketImportNames?.length) {
-				for await (let bracketImports of separatedBracketImportNames) {
-					importsAndInheritanceArray.push(bracketImports);
-				}
-			}
+			// if (separatedBracketImportNames?.length) {
+			// 	for await (let bracketImports of separatedBracketImportNames) {
+			// 		importsAndInheritanceArray.push(bracketImports);
+			// 	}
+			// }
+
 			// FROM NOW THE MAIN ARRAY INCLUDES SPECIAL CASE IMPORTS - 'IMPORT' from 'FILE' !!!
 
 			// CHECK INHERITANCE IMPORTS AND ADD THEM TO THE MAIN ARRAY
 			const contractInheritance = fileContent.match(contractInheritanceRegexp);
+
 			if (contractInheritance?.length) {
 				for await (let inheritanceFile of contractInheritance) {
 					if (inheritanceFile.includes(',')) {
@@ -252,13 +254,6 @@ const globalEdit = async (scopeNames: string[]) => {
 				}
 			}
 
-			// if (importsAndInheritanceArray.length) {
-			// 	for await (let inheritanceName of importsAndInheritanceArray) {
-			// 		console.log('INHERITANCE', inheritanceName);
-			// 	}
-			// 	console.log('INHERITANCE IMPORTS CHECKED');
-			// }
-
 			// CHECK CONSTRUCTORS FOR INIT AND CONTENT
 			const allConstuctorsImports = fileContent.matchAll(constructorExtractorRegexp);
 			for await (let constuctorImport of allConstuctorsImports) {
@@ -267,17 +262,23 @@ const globalEdit = async (scopeNames: string[]) => {
 				// console.log('INITIALIZER', constInitializer);
 				// console.log('CONTENT', constContent);
 			}
+			// NEED TO ADD CONSTRUCTOR INTO FUNCTIONS
+
+			// HERE
 
 			// CHECK FUNCTIONS FOR INIT AND CONTENT
-			const allFuncs = fileContent.match(functionExtractorRegexp);
+			const allFuncsAndModifiers = fileContent.match(functionAndModifierExtractorRegexp);
+
+			// FULL IMPORTS AND INHERITANCE IS THE SAME FOR NOW
 
 			// an array to gather all imports and then draw them onto graph
 			let inhParents: string[] = [];
-			if (fullImportNames?.length || bracketImportNamesLength.length || importsAndInheritanceArray.length || allFuncs?.length) {
+			// if (fullImportNames?.length || bracketImportNamesLength.length || importsAndInheritanceArray.length || allFuncsAndModifiers?.length) {
+			if (fullImportNames?.length || importsAndInheritanceArray.length || allFuncsAndModifiers?.length) {
 				appendFileSync(`${cwd}/graph.html`, `<div class='fullFile'>`);
 
 				// closed
-				if (allFuncs?.length) {
+				if (allFuncsAndModifiers?.length) {
 					// add header to graph if a file has functions
 					appendFileSync(`${cwd}/graph.html`, `<div class='fileName'><h3>${fileName}</h3></div>`); // closed
 				}
@@ -292,8 +293,8 @@ const globalEdit = async (scopeNames: string[]) => {
 				// - FUNCTION CALLS FROM OTHER CONTRACT ( it can start with a new line, a spance or a dot)
 
 				// now we need to find all functions in a scope file to display them in the graph
-				if (allFuncs?.length) {
-					for await (let func of allFuncs) {
+				if (allFuncsAndModifiers?.length) {
+					for await (let func of allFuncsAndModifiers) {
 						// console.log(func + '\n');
 						const lines = func.split('\n');
 						const funcFirstLine = lines[0];
@@ -307,6 +308,8 @@ const globalEdit = async (scopeNames: string[]) => {
 							appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
 						} else if (funcFirstLine.includes('external') || funcFirstLine.includes('public')) {
 							appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
+						} else if (funcFirstLine.includes('modifier')) {
+							appendFileSync(`${cwd}/graph.html`, `<div class='func modifier'>${funcName}</div>`);
 						} else {
 							appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
 						}
@@ -314,88 +317,101 @@ const globalEdit = async (scopeNames: string[]) => {
 						//search for imports
 						const funcContentRegexp = new RegExp(/\{[^}]*}/g);
 						const funcContent = func.match(funcContentRegexp)![0];
+
 						appendFileSync(`${cwd}/graph.html`, `<div class='inheritance'>`); //closed
 
 						for await (let inheritance of importsAndInheritanceArray) {
 							for await (let otherFile of allFiles) {
 								const otherFileName = path.basename(otherFile.fsPath).split('.')[0];
 
-								// SPECIAL CASE INH ( OR JUST BRACKETS IMPORTS TO BE HONEST )
-								let contractNameToLookInto: string = '';
-								let fileThatContainsTheContract: string = '';
+								// // SPECIAL CASE INH ( OR JUST BRACKETS IMPORTS TO BE HONEST )
+								// let contractNameToLookInto: string = '';
+								// let fileThatContainsTheContract: string = '';
 
-								if (inheritance.includes(' from ')) {
-									console.log('includes from');
+								// if (inheritance.includes(' from ')) {
+								// 	// console.log('includes from');
 
-									const splittedInh = inheritance.split(' from ');
-									contractNameToLookInto = splittedInh[0];
-									fileThatContainsTheContract = splittedInh[1];
-									if (otherFileName === fileThatContainsTheContract) {
-										const otherFileContent = readFileSync(otherFile.fsPath, 'utf8');
+								// 	const splittedInh = inheritance.split(' from ');
+								// 	contractNameToLookInto = splittedInh[0];
+								// 	fileThatContainsTheContract = splittedInh[1];
+								// 	if (otherFileName === fileThatContainsTheContract) {
+								// 		const otherFileContent = readFileSync(otherFile.fsPath, 'utf8');
 
-										// find the needed contract in the file
-										const contractExtractorRegexp = new RegExp(
-											`(?<=(?:^\\babstract\\b\\s|^)?\\bcontract\\b\\s+\\b${contractNameToLookInto}\\b\\s+?(?:.*)?\\{)([^]*)\\}`
-										);
+								// 		// find the needed contract in the file
+								// 		const contractExtractorRegexp = new RegExp(
+								// 			`(?<=(?:^\\babstract\\b\\s|^)?\\bcontract\\b\\s+\\b${contractNameToLookInto}\\b\\s+?(?:.*)?\\{)([^]*)\\}`
+								// 		);
 
-										const neededContractContent = otherFileContent.match(contractExtractorRegexp);
-										if (neededContractContent?.length) {
-											console.log('NEEDED CONTRACT CONTENT!!!:', neededContractContent[1]);
-											const contractContent = neededContractContent[1];
+								// 		const neededContractContent = otherFileContent.match(contractExtractorRegexp);
+								// 		const contractFound = neededContractContent && neededContractContent.length ? neededContractContent[1] : null;
+								// 		if (contractFound && neededContractContent) {
+								// 			// console.log('NEEDED CONTRACT CONTENT!!!:', neededContractContent[1]);
+								// 			const contractContent = neededContractContent[1];
 
-											const otherFileFuncs = contractContent.match(functionExtractorRegexp);
+								// 			const otherFileFuncs = contractContent.match(functionAndModifierExtractorRegexp);
 
-											if (otherFileFuncs?.length) {
-												for await (let func of otherFileContent.matchAll(functionExtractorRegexp)) {
-													// console.log(func + '\n');
-													const lines = func.toString().split('\n');
-													const firstLine = lines[0];
+								// 			if (otherFileFuncs?.length) {
+								// 				for await (let func of otherFileContent.matchAll(functionAndModifierExtractorRegexp)) {
+								// 					// console.log(func + '\n');
+								// 					const lines = func.toString().split('\n');
+								// 					const firstLine = lines[0];
 
-													const funcName = firstLine.match(/(\w+)(?=\()/)![0];
-													// BE CAREFULL HERE
-													// THE NEXT LINE IS FUNCCONTENT NOT THE FILECONTENT!!!
-													if (funcContent.includes(funcName + '(')) {
-														//MARK THE INHERITANCE
-														if (firstLine.includes('payable')) {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${funcName}</div>`);
-														} else if (firstLine.includes('pure')) {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
-														} else if (firstLine.includes('external') || firstLine.includes('public')) {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
-														} else {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
-														}
-														if (!inhParents.includes(otherFileName)) {
-															inhParents.push(otherFileName);
-														}
-													}
-												}
-											}
-										}
-									}
-								} else if (otherFileName === inheritance) {
+								// 					const funcName = firstLine.match(/(\w+)(?=\()/)![0];
+								// 					// BE CAREFULL HERE
+								// 					// THE NEXT LINE IS FUNCCONTENT NOT THE FILECONTENT!!!
+								// 					if (funcContent.includes(funcName + '(')) {
+								// 						//MARK THE INHERITANCE
+								// 						if (firstLine.includes('payable')) {
+								// 							appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${funcName}</div>`);
+								// 						} else if (firstLine.includes('pure')) {
+								// 							appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
+								// 						} else if (firstLine.includes('external') || firstLine.includes('public')) {
+								// 							appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
+								// 						} else {
+								// 							appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
+								// 						}
+								// 						if (!inhParents.includes(otherFileName)) {
+								// 							inhParents.push(otherFileName);
+								// 						}
+								// 					}
+								// 				}
+								// 			}
+								// 		}
+								// 	}
+								// } else
+								if (otherFileName === inheritance) {
+									// read other file
 									const otherFileContent = readFileSync(otherFile.fsPath, 'utf8');
-									const otherFileFuncs = otherFileContent.match(functionExtractorRegexp);
+									// extract funcs and modifiers
+									const otherFileFuncsAndModifiers = otherFileContent.match(functionAndModifierExtractorRegexp);
 
-									if (otherFileFuncs?.length) {
-										for await (let func of otherFileContent.matchAll(functionExtractorRegexp)) {
+									if (otherFileFuncsAndModifiers?.length) {
+										for await (let func of otherFileContent.matchAll(functionAndModifierExtractorRegexp)) {
 											// console.log(func + '\n');
-											const lines = func.toString().split('\n');
-											const firstLine = lines[0];
+											const otherFilelines = func.toString().split('\n');
+											const otherFilefirstLine = otherFilelines[0];
 
-											const funcName = firstLine.match(/(\w+)(?=\()/)![0];
+											const otherFileFuncOrModifierName = otherFilefirstLine.match(/(\w+)(?=\()/)![0];
 											// BE CAREFULL HERE
 											// THE NEXT LINE IS FUNCCONTENT NOT THE FILECONTENT!!!
-											if (funcContent.includes(funcName + '(')) {
+											console.log('F CONT', funcContent);
+											console.log('F 1stLine', funcFirstLine);
+											console.log('F|M NAME', otherFileFuncOrModifierName);
+
+											if (funcContent.includes(otherFileFuncOrModifierName + '(') || funcFirstLine.includes(otherFileFuncOrModifierName)) {
 												//MARK THE INHERITANCE
-												if (firstLine.includes('payable')) {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${funcName}</div>`);
-												} else if (firstLine.includes('pure')) {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
-												} else if (firstLine.includes('external') || firstLine.includes('public')) {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
+												console.log('INCLUDES', otherFileFuncOrModifierName);
+
+												if (otherFilefirstLine.includes('payable')) {
+													appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${otherFileFuncOrModifierName}</div>`);
+												} else if (otherFilefirstLine.includes('pure')) {
+													appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${otherFileFuncOrModifierName}</div>`);
+												} else if (otherFilefirstLine.includes('external') || otherFilefirstLine.includes('public')) {
+													appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${otherFileFuncOrModifierName}</div>`);
+												} else if (otherFilefirstLine.includes('modifier')) {
+													appendFileSync(`${cwd}/graph.html`, `<div class='func modifier'>${otherFileFuncOrModifierName}</div>`);
 												} else {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
+													appendFileSync(`${cwd}/graph.html`, `<div class='func'>${otherFileFuncOrModifierName}</div>`);
 												}
 												if (!inhParents.includes(otherFileName)) {
 													inhParents.push(otherFileName);
