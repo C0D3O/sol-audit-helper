@@ -326,23 +326,26 @@ window.onload = () => {
 
 			const allFullFuncs = el.querySelectorAll('.fullFunc');
 			allFullFuncs.forEach((funcEl) => {
-				const funcCoord = funcEl.getBoundingClientRect();
+				if (funcEl.querySelector('.inheritance > div.func')) {
+					const funcCoord = funcEl.getBoundingClientRect();
 
-				const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+					const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
 
-				newLine.setAttribute('id', 'line' + counter);
-				newLine.setAttribute('x1', funcCoord.left + funcCoord.width / 2);
-				newLine.setAttribute('y1', funcCoord.top + funcCoord.height / 2);
-				newLine.setAttribute('x2', inhCoord.left + inhCoord.width / 2);
-				newLine.setAttribute('y2', inhCoord.top + inhCoord.height / 2);
-				newLine.setAttribute('style', 'stroke: red; stroke-width: 4;');
+					newLine.setAttribute('id', 'line' + counter);
+					newLine.setAttribute('x1', funcCoord.left + funcCoord.width / 2);
+					newLine.setAttribute('y1', funcCoord.top + funcCoord.height / 2);
+					newLine.setAttribute('x2', inhCoord.left + inhCoord.width / 2);
+					newLine.setAttribute('y2', inhCoord.top + inhCoord.height / 2);
+					newLine.setAttribute('style', 'stroke: red; stroke-width: 4;');
 
-				lineContainer.append(newLine);
-				section.prepend(lineContainer);
+					lineContainer.append(newLine);
+					section.prepend(lineContainer);
 
-				counter++;
+					counter++;
+				}
 			});
 		}
 	});
 };
+
 `;

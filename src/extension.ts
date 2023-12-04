@@ -252,12 +252,12 @@ const globalEdit = async (scopeNames: string[]) => {
 				}
 			}
 
-			if (importsAndInheritanceArray.length) {
-				for await (let inheritanceName of importsAndInheritanceArray) {
-					console.log('INHERITANCE', inheritanceName);
-				}
-				console.log('INHERITANCE IMPORTS CHECKED');
-			}
+			// if (importsAndInheritanceArray.length) {
+			// 	for await (let inheritanceName of importsAndInheritanceArray) {
+			// 		console.log('INHERITANCE', inheritanceName);
+			// 	}
+			// 	console.log('INHERITANCE IMPORTS CHECKED');
+			// }
 
 			// CHECK CONSTRUCTORS FOR INIT AND CONTENT
 			const allConstuctorsImports = fileContent.matchAll(constructorExtractorRegexp);
@@ -325,12 +325,53 @@ const globalEdit = async (scopeNames: string[]) => {
 								let fileThatContainsTheContract: string = '';
 
 								if (inheritance.includes(' from ')) {
+									console.log('includes from');
+
 									const splittedInh = inheritance.split(' from ');
 									contractNameToLookInto = splittedInh[0];
 									fileThatContainsTheContract = splittedInh[1];
 									if (otherFileName === fileThatContainsTheContract) {
 										const otherFileContent = readFileSync(otherFile.fsPath, 'utf8');
+
 										// find the needed contract in the file
+										const contractExtractorRegexp = new RegExp(
+											`(?<=(?:^\\babstract\\b\\s|^)?\\bcontract\\b\\s+\\b${contractNameToLookInto}\\b\\s+?(?:.*)?\\{)([^]*)\\}`
+										);
+
+										const neededContractContent = otherFileContent.match(contractExtractorRegexp);
+										if (neededContractContent?.length) {
+											console.log('NEEDED CONTRACT CONTENT!!!:', neededContractContent[1]);
+											const contractContent = neededContractContent[1];
+
+											const otherFileFuncs = contractContent.match(functionExtractorRegexp);
+
+											if (otherFileFuncs?.length) {
+												for await (let func of otherFileContent.matchAll(functionExtractorRegexp)) {
+													// console.log(func + '\n');
+													const lines = func.toString().split('\n');
+													const firstLine = lines[0];
+
+													const funcName = firstLine.match(/(\w+)(?=\()/)![0];
+													// BE CAREFULL HERE
+													// THE NEXT LINE IS FUNCCONTENT NOT THE FILECONTENT!!!
+													if (funcContent.includes(funcName + '(')) {
+														//MARK THE INHERITANCE
+														if (firstLine.includes('payable')) {
+															appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${funcName}</div>`);
+														} else if (firstLine.includes('pure')) {
+															appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
+														} else if (firstLine.includes('external') || firstLine.includes('public')) {
+															appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
+														} else {
+															appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
+														}
+														if (!inhParents.includes(otherFileName)) {
+															inhParents.push(otherFileName);
+														}
+													}
+												}
+											}
+										}
 									}
 								} else if (otherFileName === inheritance) {
 									const otherFileContent = readFileSync(otherFile.fsPath, 'utf8');
