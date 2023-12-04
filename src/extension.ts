@@ -1,10 +1,10 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
 
-import path, { resolve } from 'node:path';
-import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
+import path from 'node:path';
+import { existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
-import { getFolders, osPathFixer, pathLogic, pathLogic2, htmlTemplate, cssTemplate, jsTemplate } from './utils';
+import { getFolders, osPathFixer, pathLogic, pathLogic2 } from './utils';
 
 const excludePattern = [
 	'**/node_modules/**',
@@ -165,270 +165,8 @@ const globalEdit = async (scopeNames: string[]) => {
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
 
-	const functionExtractorRegexp = new RegExp(/(^|s+)?\bfunction\b\s.*\(.*\).*\{[^}]*}/g);
-	const constructorExtractorRegexp = new RegExp(/(?<=(?:^|\s+)?\bconstructor\b\(.*\))\s+(?:(\w+)\(.*)?(?:\{)(\s?[^}]*).*(?=\})/g);
-	// CONTRACT IS REGEXP
-	const contractInheritanceRegexp = new RegExp(/(?<=^contract .* is )[\w*(?:\,\s)]+(?={)/gm);
-	writeFileSync(`${cwd}/styles.css`, cssTemplate);
-	writeFileSync(`${cwd}/script.js`, jsTemplate);
-	writeFileSync(`${cwd}/graph.html`, htmlTemplate);
-
 	for await (let file of allFiles) {
 		const fileContent = readFileSync(file.fsPath, 'utf8');
-		const fileName = path.basename(file.fsPath);
-
-		//if the file is in the scope
-		// CREATE GRAPH
-
-		// check import lines
-		// if it's a bracket import  -  push the name into bracketImports array
-		//use the last element to GET THE NAME OF THE FILE TO SEARCH FOR OTHER ELEMENTS CONTRACTS and read their content to compare to current files content
-		// if it's a full import  -  push the name into fullImports array
-
-		// check all the inheritance imports
-
-		if (scopeNames.includes(fileName)) {
-			// THE MAIN ARRAY TO STORE ALL THE IMPORTS INHERITANCE ETC
-
-			let importsAndInheritanceArray: string[] = [];
-
-			// CHECK IMPORTS!!!
-			const fullImportRegexp = new RegExp(/(?<=^\bimport\b\s+?["'].?\/?)\w+(?=.sol)/gm);
-			const bracketsImportRegexp = new RegExp(/\{([^{}]+)\}.*?\/?([^/]+)\.sol/gm);
-			// CHECK FULL IMPORTS
-			const fullImportNames = fileContent.match(fullImportRegexp);
-			// ADD FULL IMPORTS TO THE MAIN ARRAY
-			if (fullImportNames?.length) {
-				for await (let fullImportName of fullImportNames) {
-					importsAndInheritanceArray.push(fullImportName);
-				}
-			}
-
-			// CHECK BRACKET IMPORTS
-			let separatedBracketImportNames: string[] = [];
-			const bracketImportNames = fileContent.matchAll(bracketsImportRegexp);
-			const bracketImportNamesLength = Array.from({ ...bracketImportNames });
-			for await (let bracketImportName of bracketImportNames) {
-				const importNamesFromBrackets = bracketImportName[1];
-				const contractContainingTheBracketImports = bracketImportName[2];
-
-				if (importNamesFromBrackets.includes(',')) {
-					separatedBracketImportNames = importNamesFromBrackets
-						.split(',')
-						.map((name) => name.trim() + ' from ' + contractContainingTheBracketImports);
-				} else {
-					separatedBracketImportNames.push(importNamesFromBrackets.trim() + ' from ' + contractContainingTheBracketImports);
-				}
-
-				// separatedBracketImportNames.forEach((item) => console.log('BRACKET ITEM', item));
-				// console.log(contractContainingTheBracketImports);
-				// console.log('Brackets IMPORTS CHECKED');
-			}
-			// AND ADD THEM TO THE MAIN ARRAY ( IT CAN HAVE 'IMPORT' from 'FILE')
-
-			if (separatedBracketImportNames?.length) {
-				for await (let bracketImports of separatedBracketImportNames) {
-					importsAndInheritanceArray.push(bracketImports);
-				}
-			}
-			// FROM NOW THE MAIN ARRAY INCLUDES SPECIAL CASE IMPORTS - 'IMPORT' from 'FILE' !!!
-
-			// CHECK INHERITANCE IMPORTS AND ADD THEM TO THE MAIN ARRAY
-			const contractInheritance = fileContent.match(contractInheritanceRegexp);
-			if (contractInheritance?.length) {
-				for await (let inheritanceFile of contractInheritance) {
-					if (inheritanceFile.includes(',')) {
-						let inheritancesArray = inheritanceFile.split(',').map((name) => name.trim());
-						for await (let inh of inheritancesArray) {
-							if (!importsAndInheritanceArray.includes(inh)) {
-								importsAndInheritanceArray.push(inh);
-							}
-						}
-					} else {
-						if (!importsAndInheritanceArray.includes(inheritanceFile.trim())) {
-							importsAndInheritanceArray.push(inheritanceFile.trim());
-						}
-					}
-				}
-			}
-
-			// if (importsAndInheritanceArray.length) {
-			// 	for await (let inheritanceName of importsAndInheritanceArray) {
-			// 		console.log('INHERITANCE', inheritanceName);
-			// 	}
-			// 	console.log('INHERITANCE IMPORTS CHECKED');
-			// }
-
-			// CHECK CONSTRUCTORS FOR INIT AND CONTENT
-			const allConstuctorsImports = fileContent.matchAll(constructorExtractorRegexp);
-			for await (let constuctorImport of allConstuctorsImports) {
-				const constInitializer = constuctorImport[1];
-				const constContent = constuctorImport[2];
-				// console.log('INITIALIZER', constInitializer);
-				// console.log('CONTENT', constContent);
-			}
-
-			// CHECK FUNCTIONS FOR INIT AND CONTENT
-			const allFuncs = fileContent.match(functionExtractorRegexp);
-
-			// an array to gather all imports and then draw them onto graph
-			let inhParents: string[] = [];
-			if (fullImportNames?.length || bracketImportNamesLength.length || importsAndInheritanceArray.length || allFuncs?.length) {
-				appendFileSync(`${cwd}/graph.html`, `<div class='fullFile'>`);
-
-				// closed
-				if (allFuncs?.length) {
-					// add header to graph if a file has functions
-					appendFileSync(`${cwd}/graph.html`, `<div class='fileName'><h3>${fileName}</h3></div>`); // closed
-				}
-
-				appendFileSync(`${cwd}/graph.html`, `<div class='functionsPlusInh'>`); //closed
-				appendFileSync(`${cwd}/graph.html`, `<div class='functions'>`); //closed
-
-				// ITERATING FUNCTIONS
-
-				// in FUNCTIONS WE'RE LOOKING FOR:
-				// - MODIFIERS
-				// - FUNCTION CALLS FROM OTHER CONTRACT ( it can start with a new line, a spance or a dot)
-
-				// now we need to find all functions in a scope file to display them in the graph
-				if (allFuncs?.length) {
-					for await (let func of allFuncs) {
-						// console.log(func + '\n');
-						const lines = func.split('\n');
-						const funcFirstLine = lines[0];
-
-						const funcName = funcFirstLine.match(/(\w+)(?=\()/)![0];
-						appendFileSync(`${cwd}/graph.html`, `<div class='fullFunc'>`); // closed
-
-						if (funcFirstLine.includes('payable')) {
-							appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${funcName}</div>`);
-						} else if (funcFirstLine.includes('pure')) {
-							appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
-						} else if (funcFirstLine.includes('external') || funcFirstLine.includes('public')) {
-							appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
-						} else {
-							appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
-						}
-
-						//search for imports
-						const funcContentRegexp = new RegExp(/\{[^}]*}/g);
-						const funcContent = func.match(funcContentRegexp)![0];
-						appendFileSync(`${cwd}/graph.html`, `<div class='inheritance'>`); //closed
-
-						for await (let inheritance of importsAndInheritanceArray) {
-							for await (let otherFile of allFiles) {
-								const otherFileName = path.basename(otherFile.fsPath).split('.')[0];
-
-								// SPECIAL CASE INH ( OR JUST BRACKETS IMPORTS TO BE HONEST )
-								let contractNameToLookInto: string = '';
-								let fileThatContainsTheContract: string = '';
-
-								if (inheritance.includes(' from ')) {
-									console.log('includes from');
-
-									const splittedInh = inheritance.split(' from ');
-									contractNameToLookInto = splittedInh[0];
-									fileThatContainsTheContract = splittedInh[1];
-									if (otherFileName === fileThatContainsTheContract) {
-										const otherFileContent = readFileSync(otherFile.fsPath, 'utf8');
-
-										// find the needed contract in the file
-										const contractExtractorRegexp = new RegExp(
-											`(?<=(?:^\\babstract\\b\\s|^)?\\bcontract\\b\\s+\\b${contractNameToLookInto}\\b\\s+?(?:.*)?\\{)([^]*)\\}`
-										);
-
-										const neededContractContent = otherFileContent.match(contractExtractorRegexp);
-										if (neededContractContent?.length) {
-											console.log('NEEDED CONTRACT CONTENT!!!:', neededContractContent[1]);
-											const contractContent = neededContractContent[1];
-
-											const otherFileFuncs = contractContent.match(functionExtractorRegexp);
-
-											if (otherFileFuncs?.length) {
-												for await (let func of otherFileContent.matchAll(functionExtractorRegexp)) {
-													// console.log(func + '\n');
-													const lines = func.toString().split('\n');
-													const firstLine = lines[0];
-
-													const funcName = firstLine.match(/(\w+)(?=\()/)![0];
-													// BE CAREFULL HERE
-													// THE NEXT LINE IS FUNCCONTENT NOT THE FILECONTENT!!!
-													if (funcContent.includes(funcName + '(')) {
-														//MARK THE INHERITANCE
-														if (firstLine.includes('payable')) {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${funcName}</div>`);
-														} else if (firstLine.includes('pure')) {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
-														} else if (firstLine.includes('external') || firstLine.includes('public')) {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
-														} else {
-															appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
-														}
-														if (!inhParents.includes(otherFileName)) {
-															inhParents.push(otherFileName);
-														}
-													}
-												}
-											}
-										}
-									}
-								} else if (otherFileName === inheritance) {
-									const otherFileContent = readFileSync(otherFile.fsPath, 'utf8');
-									const otherFileFuncs = otherFileContent.match(functionExtractorRegexp);
-
-									if (otherFileFuncs?.length) {
-										for await (let func of otherFileContent.matchAll(functionExtractorRegexp)) {
-											// console.log(func + '\n');
-											const lines = func.toString().split('\n');
-											const firstLine = lines[0];
-
-											const funcName = firstLine.match(/(\w+)(?=\()/)![0];
-											// BE CAREFULL HERE
-											// THE NEXT LINE IS FUNCCONTENT NOT THE FILECONTENT!!!
-											if (funcContent.includes(funcName + '(')) {
-												//MARK THE INHERITANCE
-												if (firstLine.includes('payable')) {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func payable'>${funcName}</div>`);
-												} else if (firstLine.includes('pure')) {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func pure'>${funcName}</div>`);
-												} else if (firstLine.includes('external') || firstLine.includes('public')) {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func external'>${funcName}</div>`);
-												} else {
-													appendFileSync(`${cwd}/graph.html`, `<div class='func'>${funcName}</div>`);
-												}
-												if (!inhParents.includes(otherFileName)) {
-													inhParents.push(otherFileName);
-												}
-											}
-										}
-									}
-									// appendFileSync(`${cwd}/graph.html`, `</div>`);
-								}
-							}
-						}
-						appendFileSync(`${cwd}/graph.html`, `</div>`);
-						appendFileSync(`${cwd}/graph.html`, `</div>`);
-					}
-				}
-				appendFileSync(`${cwd}/graph.html`, `</div>`);
-
-				if (inhParents.length) {
-					appendFileSync(`${cwd}/graph.html`, `<div class='inh-parent'>`);
-					for await (let inh of inhParents) {
-						if (inh) {
-							appendFileSync(`${cwd}/graph.html`, `<h2>${inh}</h2>`);
-						}
-					}
-					appendFileSync(`${cwd}/graph.html`, `</div>`);
-				}
-
-				appendFileSync(`${cwd}/graph.html`, `</div>`);
-
-				// closing fullFile div
-				appendFileSync(`${cwd}/graph.html`, `</div>`);
-			}
-		}
 
 		const lines = fileContent.split('\n');
 		let newLines = [];
@@ -500,13 +238,6 @@ const globalEdit = async (scopeNames: string[]) => {
 			console.log('WRITING ERROR', error);
 		}
 	}
-	appendFileSync(
-		`${cwd}/graph.html`,
-		`        </section>
-    </body>
-
-</html>`
-	);
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
@@ -587,9 +318,9 @@ export function activate(context: ExtensionContext) {
 				}
 			}
 
-			// if (existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
-			// 	throw Error('Scope folder already exists, skipping to watcher');
-			// }
+			if (existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
+				throw Error('Scope folder already exists, skipping to watcher');
+			}
 
 			if (!existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
 				await mkdir(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/', { recursive: true });
@@ -643,11 +374,11 @@ export function activate(context: ExtensionContext) {
 			// START GLOBAL PATH EDITING
 			await globalEdit(scopeNames);
 
-			// runTheWatcher(watcher);
+			runTheWatcher(watcher);
 		} catch (error) {
 			// if error with foundry config paths etc - just watch files
 			console.error(error);
-			// runTheWatcher(watcher);
+			runTheWatcher(watcher);
 		}
 	});
 
