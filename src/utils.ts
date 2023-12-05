@@ -8,6 +8,7 @@ export const getFolders = (source: string) =>
 export const osPathFixer = (path: string): string => {
 	return process.platform === 'win32' ? path.slice(1) : path;
 };
+
 // LOGIC FOR THE MOVED FILE !!!
 const diffLevelsLogic = (
 	anotherFilePathLength: number,
@@ -110,6 +111,7 @@ const diffLevelsLogic = (
 	}
 	return line;
 };
+
 export const pathLogic = (otherFilePath: string, movedFilePath: string, depName: string, line: string, theBracesImport?: string) => {
 	const otherFilePathParts = otherFilePath.split('/');
 	const currentFilePathParts = movedFilePath.split('/');

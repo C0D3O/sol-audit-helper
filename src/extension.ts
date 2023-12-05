@@ -151,7 +151,7 @@ const watcherLogic = async (e: Uri) => {
 	}
 };
 
-const globalEdit = async (scopeNames: string[]) => {
+const globalEdit = async () => {
 	const excludePattern = [
 		'**/node_modules/**',
 		'**/lib/**',
@@ -372,7 +372,7 @@ export function activate(context: ExtensionContext) {
 			}
 
 			// START GLOBAL PATH EDITING
-			await globalEdit(scopeNames);
+			await globalEdit();
 
 			runTheWatcher(watcher);
 		} catch (error) {
