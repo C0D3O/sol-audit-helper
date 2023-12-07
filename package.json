@@ -2,7 +2,7 @@
 	"name": "solidity-paths-helper",
 	"displayName": "Solidity Paths Helper",
 	"description": "Automatically updates sol files imports on file movement",
-	"version": "0.5.1",
+	"version": "0.5.11",
 	"author": "C0D30",
 	"publisher": "C0D30",
 	"repository": "https://github.com/C0D3O/sol-paths-helper",
@@ -15,12 +15,12 @@
 	"activationEvents": [
 		"onStartupFinished"
 	],
-	"main": "./out/extension.js",
+	"main": "./out/main.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "sol-paths-helper",
-				"title": "sol-paths-helper"
+				"command": "sol-paths-helpers",
+				"title": "Run Solidity Paths Helper"
 			}
 		],
 		"configuration": {
@@ -28,19 +28,22 @@
 			"properties": {
 				"sol-path-helper.slocReportFile": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
+					"scope": "application",
 					"description": "Should a sLoc html (interactive) be generated"
 				},
 				"sol-path-helper.parseFilesForPotentialVulnerabilities": {
 					"type": "boolean",
-					"default": true,
-					"description": "Creates @audit comments (for now only for calls, unchecked returns, balance checks"
+					"default": false,
+					"scope": "application",
+					"description": "Creates audit comments (for now only for calls, unchecked returns, balance checks"
 				}
 			}
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "npm run esbuild-base -- --minify",
+		"esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
@@ -55,10 +58,11 @@
 		"@typescript-eslint/eslint-plugin": "^6.9.0",
 		"@typescript-eslint/parser": "^6.9.0",
 		"@vscode/test-electron": "^2.3.6",
+		"esbuild": "^0.19.8",
 		"eslint": "^8.52.0",
 		"glob": "^10.3.10",
 		"mocha": "^10.2.0",
-		"typescript": "^5.2.2",
-		"node-sloc": "^0.2.1"
+		"node-sloc": "^0.2.1",
+		"typescript": "^5.2.2"
 	}
 }
