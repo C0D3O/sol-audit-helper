@@ -1,13 +1,11 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
 
 import path from 'node:path';
-import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
-import { generateSlocReport, getFolders, htmlTemplate, osPathFixer, pathLogic, pathLogic2 } from './utils';
+import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2 } from './utils';
 const extSettings = workspace.getConfiguration('sol-path-helper');
-console.log(extSettings.parseFilesForPotentialVulnerabilities);
-console.log(extSettings.sLocReportFile);
 
 const excludePattern = [
 	'**/node_modules/**',
