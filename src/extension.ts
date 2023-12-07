@@ -5,6 +5,7 @@ import { existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
 import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2 } from './utils';
+
 const extSettings = workspace.getConfiguration('sol-path-helper');
 
 const excludePattern = [
