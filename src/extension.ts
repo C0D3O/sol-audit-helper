@@ -3,9 +3,11 @@ import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, Extension
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
-import sloc from 'node-sloc';
 
-import { getFolders, htmlTemplate, osPathFixer, pathLogic, pathLogic2 } from './utils';
+import { generateSlocReport, getFolders, htmlTemplate, osPathFixer, pathLogic, pathLogic2 } from './utils';
+const extSettings = workspace.getConfiguration('sol-path-helper');
+console.log(extSettings.parseFilesForPotentialVulnerabilities);
+console.log(extSettings.sLocReportFile);
 
 const excludePattern = [
 	'**/node_modules/**',
@@ -173,30 +175,32 @@ const globalEdit = async () => {
 		const lines = fileContent.split('\n');
 		let newLines = [];
 		for await (let line of lines) {
-			if (shouldBeSkipped) {
-				newLines.push(line);
-				shouldBeSkipped = false;
-				continue;
-			} else if (alreadyBookmarkedLine.test(line)) {
-				shouldBeSkipped = true;
-				newLines.push(line);
-				continue;
-			} else if (callRegexp.test(line)) {
-				const origLine = line;
-				line = '// @audit-info CALL\n' + origLine;
-				if (!uncheckedReturnRegexp.test(origLine)) {
-					line = '// @audit-issue unchecked return\n' + origLine;
+			if (extSettings.parseFilesForPotentialVulnerabilities) {
+				if (shouldBeSkipped) {
+					newLines.push(line);
+					shouldBeSkipped = false;
+					continue;
+				} else if (alreadyBookmarkedLine.test(line)) {
+					shouldBeSkipped = true;
+					newLines.push(line);
+					continue;
+				} else if (callRegexp.test(line)) {
+					const origLine = line;
+					line = '// @audit-info CALL\n' + origLine;
+					if (!uncheckedReturnRegexp.test(origLine)) {
+						line = '// @audit-issue unchecked return\n' + origLine;
+					}
+					newLines.push(line);
+					continue;
+				} else if (balanceCheckRegexp.test(line)) {
+					// const origLine = line;
+					line = '// @audit-info BALANCE CHECK\n' + line;
+					newLines.push(line);
+					continue;
 				}
-				newLines.push(line);
-				continue;
-			} else if (balanceCheckRegexp.test(line)) {
-				// const origLine = line;
-				line = '// @audit-info BALANCE CHECK\n' + line;
-				newLines.push(line);
-				continue;
 			}
 			// if file has imports
-			else if (regexp.test(line)) {
+			if (regexp.test(line)) {
 				// skip lib imports
 				if (skipRegexp.test(line)) {
 					newLines.push(line);
@@ -371,108 +375,13 @@ export function activate(context: ExtensionContext) {
 				});
 			}
 
-			// CREATE A SLOC REPORT
-			writeFileSync(`${cwd}/sLoc.html`, htmlTemplate);
-			let id = 'a';
-			for await (let scopeFileName of scopeNames) {
-				try {
-					id += id;
-					console.log(`${newPath}${scopeFileName}`);
-
-					const sLocOutput = await sloc({ path: `${newPath}${scopeFileName}`, extensions: ['sol'] });
-
-					let fileName = sLocOutput?.paths[0].split('/').pop()?.slice(0, -4);
-					let sLocNumber = sLocOutput?.sloc;
-
-					const DataToAppend = `
-		<tr>
-			<td>${fileName}</td>
-			<td>${sLocNumber}</td>
-			<td>
-				<select id="${id}" class="form-select" aria-label="Default select example"
-					onchange="changeFunc(this)">
-					<option value="done">Done</option>
-					<option value="in_progress">In Progress</option>
-					<option value="not_started" selected>Not Started</option>
-				</select>
-			</td>
-		</tr>`;
-					appendFileSync(`${cwd}/sLoc.html`, DataToAppend);
-				} catch (error) {
-					console.log(error);
-				}
+			if (extSettings.sLocReportFile) {
+				await generateSlocReport(cwd, scopeNames, newPath);
 			}
-			const dataToWrapTheHtmlWith = `
-			</tbody>
-					</table>
-				</div>
-				<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
-					integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
-					crossorigin="anonymous"></script>
-					<script>
-					let ascending = true;
 
-					const sortTable = () => {
-						let table, rows, switching, i, x, y, shouldSwitch;
-						table = document.querySelector('table');
-						switching = true;
-
-						while (switching) {
-							switching = false;
-							rows = table.rows;
-
-							for (i = 1; i < rows.length - 1; i++) {
-								shouldSwitch = false;
-								x = parseInt(rows[i].getElementsByTagName('td')[1].innerHTML);
-								y = parseInt(rows[i + 1].getElementsByTagName('td')[1].innerHTML);
-
-								if (ascending ? x > y : x < y) {
-									shouldSwitch = true;
-									break;
-								}
-							}
-
-							if (shouldSwitch) {
-								rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-								switching = true;
-							}
-						}
-						
-						// Toggle sorting direction for the next function call
-						ascending = !ascending;
-					};
-
-			
-					const changeFunc = (selectObject) => {
-						const value = selectObject.value;
-						window.sessionStorage.setItem(selectObject.id, value);
-					};
-			
-					window.onload = () => {
-						sortTable();
-			
-						Object.keys(sessionStorage).forEach(function (selector) {
-							const value = sessionStorage.getItem(selector);
-			
-							document
-								.querySelector('#' + selector)
-								.querySelectorAll('option')
-								.forEach((option) => {
-									if (option.value === value) {
-										console.log('true');
-										option.selected = true;
-									}
-								});
-						});
-					};
-				</script>
-			</body>
-	
-		</html>`;
-			appendFileSync(`${cwd}/sLoc.html`, dataToWrapTheHtmlWith);
 			// START GLOBAL PATH EDITING
 			await globalEdit();
-
+			// and run the watcher
 			runTheWatcher(watcher);
 		} catch (error) {
 			// if error with foundry config paths etc - just watch files

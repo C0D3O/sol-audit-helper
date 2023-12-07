@@ -2,7 +2,7 @@
 	"name": "solidity-paths-helper",
 	"displayName": "Solidity Paths Helper",
 	"description": "Automatically updates sol files imports on file movement",
-	"version": "0.4.82",
+	"version": "0.5.0",
 	"author": "C0D30",
 	"publisher": "C0D30",
 	"repository": "https://github.com/C0D3O/sol-paths-helper",
@@ -22,7 +22,22 @@
 				"command": "sol-paths-helper",
 				"title": "sol-paths-helper"
 			}
-		]
+		],
+		"configuration": {
+			"title": "Solidity Path Helper",
+			"properties": {
+				"sol-path-helper.sLocReportFile": {
+					"type": "boolean",
+					"default": true,
+					"description": "Should a sLoc html (interactive) be generated"
+				},
+				"sol-path-helper.parseFilesForPotentialVulnerabilities": {
+					"type": "boolean",
+					"default": true,
+					"description": "Creates @audit comments (for now only for calls, unchecked returns, balance checks"
+				}
+			}
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -43,9 +58,7 @@
 		"eslint": "^8.52.0",
 		"glob": "^10.3.10",
 		"mocha": "^10.2.0",
-		"typescript": "^5.2.2"
-	},
-	"dependencies": {
+		"typescript": "^5.2.2",
 		"node-sloc": "^0.2.1"
 	}
 }
