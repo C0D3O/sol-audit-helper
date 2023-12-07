@@ -200,3 +200,58 @@ export const pathLogic2 = (currentFilePath: string, anotherFilePath: string, dep
 	}
 	return line;
 };
+
+export const htmlTemplate = `
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>File Status</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+            integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+            }
+
+            body {
+                background: rgb(19, 47, 50);
+                background: linear-gradient(18deg, rgba(19, 47, 50, 1) -50%, rgba(120, 247, 255, 1) 150%);
+                background-repeat: no-repeat;
+                height: 100dvh;
+            }
+
+            .table-container {
+                margin-top: 100px;
+            }
+
+            table {
+                text-align: center;
+            }
+
+            tr>td {
+                color: aliceblue !important;
+                font-size: 1.3rem;
+            }
+
+            select {
+                text-align: center;
+            }
+        </style>
+
+    </head>
+
+    <body>
+        <div class="table-container d-flex justify-content-center">
+            <table class="table table-striped w-75">
+                <thead>
+                    <tr>
+                        <th scope="col">File</th>
+                        <th scope="col">sLoc</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    // append here
+`;
