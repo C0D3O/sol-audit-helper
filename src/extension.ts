@@ -1,10 +1,13 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
 
 import path from 'node:path';
-import { existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 
-import { getFolders, osPathFixer, pathLogic, pathLogic2 } from './utils';
+import { generateSlocReport, getFolders, htmlTemplate, osPathFixer, pathLogic, pathLogic2 } from './utils';
+const extSettings = workspace.getConfiguration('sol-path-helper');
+console.log(extSettings.parseFilesForPotentialVulnerabilities);
+console.log(extSettings.sLocReportFile);
 
 const excludePattern = [
 	'**/node_modules/**',
@@ -166,35 +169,38 @@ const globalEdit = async () => {
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
 
 	for await (let file of allFiles) {
+		//
 		const fileContent = readFileSync(file.fsPath, 'utf8');
 
 		const lines = fileContent.split('\n');
 		let newLines = [];
 		for await (let line of lines) {
-			if (shouldBeSkipped) {
-				newLines.push(line);
-				shouldBeSkipped = false;
-				continue;
-			} else if (alreadyBookmarkedLine.test(line)) {
-				shouldBeSkipped = true;
-				newLines.push(line);
-				continue;
-			} else if (callRegexp.test(line)) {
-				const origLine = line;
-				line = '// @audit-info CALL\n' + origLine;
-				if (!uncheckedReturnRegexp.test(origLine)) {
-					line = '// @audit-issue unchecked return\n' + origLine;
+			if (extSettings.parseFilesForPotentialVulnerabilities) {
+				if (shouldBeSkipped) {
+					newLines.push(line);
+					shouldBeSkipped = false;
+					continue;
+				} else if (alreadyBookmarkedLine.test(line)) {
+					shouldBeSkipped = true;
+					newLines.push(line);
+					continue;
+				} else if (callRegexp.test(line)) {
+					const origLine = line;
+					line = '// @audit-info CALL\n' + origLine;
+					if (!uncheckedReturnRegexp.test(origLine)) {
+						line = '// @audit-issue unchecked return\n' + origLine;
+					}
+					newLines.push(line);
+					continue;
+				} else if (balanceCheckRegexp.test(line)) {
+					// const origLine = line;
+					line = '// @audit-info BALANCE CHECK\n' + line;
+					newLines.push(line);
+					continue;
 				}
-				newLines.push(line);
-				continue;
-			} else if (balanceCheckRegexp.test(line)) {
-				// const origLine = line;
-				line = '// @audit-info BALANCE CHECK\n' + line;
-				newLines.push(line);
-				continue;
 			}
 			// if file has imports
-			else if (regexp.test(line)) {
+			if (regexp.test(line)) {
 				// skip lib imports
 				if (skipRegexp.test(line)) {
 					newLines.push(line);
@@ -326,6 +332,7 @@ export function activate(context: ExtensionContext) {
 				await mkdir(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/', { recursive: true });
 			}
 
+			const newPath = neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/';
 			const scopeFileContent = readFileSync(scopeFiles[0].fsPath, 'utf8');
 			const lines = scopeFileContent.split('\n');
 			const scopeNames = [];
@@ -338,15 +345,12 @@ export function activate(context: ExtensionContext) {
 				scopeNames.push(scopeFileName);
 
 				let oldPath = line.toString()[0] === '/' ? cwd + line.replace('\r', '') : cwd + '/' + line.replace('\r', '');
-				const newPath = neededPath.length
-					? foundryBaseFolder + `/${neededPath}/scope/` + scopeFileName
-					: foundryBaseFolder + '/src/scope/' + scopeFileName;
 
 				await new Promise(async (resolve) => {
 					let success = false;
 					while (!success) {
 						try {
-							await rename(oldPath, newPath);
+							await rename(oldPath, newPath + scopeFileName);
 							success = true;
 						} catch (error: any) {
 							if (error.message.includes('ENOENT')) {
@@ -371,9 +375,13 @@ export function activate(context: ExtensionContext) {
 				});
 			}
 
+			if (extSettings.sLocReportFile) {
+				await generateSlocReport(cwd, scopeNames, newPath);
+			}
+
 			// START GLOBAL PATH EDITING
 			await globalEdit();
-
+			// and run the watcher
 			runTheWatcher(watcher);
 		} catch (error) {
 			// if error with foundry config paths etc - just watch files

@@ -1,4 +1,5 @@
-import { readdirSync } from 'fs';
+import { appendFileSync, readdirSync, writeFileSync } from 'fs';
+import sloc from 'node-sloc';
 
 export const getFolders = (source: string) =>
 	readdirSync(source, { withFileTypes: true })
@@ -199,4 +200,173 @@ export const pathLogic2 = (currentFilePath: string, anotherFilePath: string, dep
 		);
 	}
 	return line;
+};
+
+export const htmlTemplate = `
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>File Status</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+            integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+        <style>
+		* {
+			box-sizing: border-box;
+			margin: 0;
+		}
+		
+		body {
+			background: rgb(19, 47, 50);
+			background: linear-gradient(18deg, rgba(19, 47, 50, 1) -50%, rgba(120, 247, 255, 1) 150%);
+			background-repeat: no-repeat;
+			height: 100dvh;
+		}
+		
+		.table-container {
+			margin-top: 100px;
+		}
+		
+		table {
+			text-align: center;
+			border: 3px solid black !important;
+			border-radius: 10px;
+			padding: 0.4em;
+			border-collapse: separate;
+		}
+		
+		tr > td {
+			color: aliceblue !important;
+			font-size: 1.3rem;
+		}
+		th {
+			border-style: hidden !important;
+		}
+		tr:last-child > td {
+			border-style: hidden !important;
+		}
+		select {
+			text-align: center;
+		}
+		.form-select {
+			background-color: #9f9d9d;
+			color: aliceblue;
+		}
+	    </style>
+
+    </head>
+
+    <body>
+        <div class="table-container d-flex justify-content-center">
+            <table class="table table-striped w-75">
+                <thead>
+                    <tr>
+                        <th scope="col">File</th>
+                        <th scope="col" onclick="sortTable()">sLoc</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+`;
+export const generateSlocReport = async (cwd: string, scopeNames: string[], newPath: string) => {
+	// CREATE A SLOC REPORT
+
+	writeFileSync(`${cwd}/sLoc.html`, htmlTemplate);
+	let id = 'a';
+	for await (let scopeFileName of scopeNames) {
+		try {
+			id += id;
+			console.log(`${newPath}${scopeFileName}`);
+
+			const sLocOutput = await sloc({ path: `${newPath}${scopeFileName}`, extensions: ['sol'] });
+
+			let fileName = sLocOutput?.paths[0].split('/').pop()?.slice(0, -4);
+			let sLocNumber = sLocOutput?.sloc;
+
+			const DataToAppend = `
+	<tr>
+		<td>${fileName}</td>
+		<td>${sLocNumber}</td>
+		<td>
+			<select id="${id}" class="form-select" aria-label="Default select example"
+				onchange="changeFunc(this)">
+				<option value="done">Done</option>
+				<option value="in_progress">In Progress</option>
+				<option value="not_started" selected>Not Started</option>
+			</select>
+		</td>
+	</tr>`;
+			appendFileSync(`${cwd}/sLoc.html`, DataToAppend);
+		} catch (error) {
+			console.log(error);
+		}
+	}
+	const dataToWrapTheHtmlWith = `
+		</tbody>
+				</table>
+			</div>
+			<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+				integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+				crossorigin="anonymous"></script>
+				<script>
+				let ascending = true;
+
+				const sortTable = () => {
+					let table, rows, switching, i, x, y, shouldSwitch;
+					table = document.querySelector('table');
+					switching = true;
+
+					while (switching) {
+						switching = false;
+						rows = table.rows;
+
+						for (i = 1; i < rows.length - 1; i++) {
+							shouldSwitch = false;
+							x = parseInt(rows[i].getElementsByTagName('td')[1].innerHTML);
+							y = parseInt(rows[i + 1].getElementsByTagName('td')[1].innerHTML);
+
+							if (ascending ? x > y : x < y) {
+								shouldSwitch = true;
+								break;
+							}
+						}
+
+						if (shouldSwitch) {
+							rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+							switching = true;
+						}
+					}
+					
+					// Toggle sorting direction for the next function call
+					ascending = !ascending;
+				};
+
+		
+				const changeFunc = (selectObject) => {
+					const value = selectObject.value;
+					window.sessionStorage.setItem(selectObject.id, value);
+				};
+		
+				window.onload = () => {
+					sortTable();
+		
+					Object.keys(sessionStorage).forEach(function (selector) {
+						const value = sessionStorage.getItem(selector);
+		
+						document
+							.querySelector('#' + selector)
+							.querySelectorAll('option')
+							.forEach((option) => {
+								if (option.value === value) {
+									console.log('true');
+									option.selected = true;
+								}
+							});
+					});
+				};
+			</script>
+		</body>
+
+	</html>`;
+	appendFileSync(`${cwd}/sLoc.html`, dataToWrapTheHtmlWith);
 };
