@@ -210,35 +210,48 @@ export const htmlTemplate = `
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
             integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
         <style>
-            * {
-                box-sizing: border-box;
-                margin: 0;
-            }
-
-            body {
-                background: rgb(19, 47, 50);
-                background: linear-gradient(18deg, rgba(19, 47, 50, 1) -50%, rgba(120, 247, 255, 1) 150%);
-                background-repeat: no-repeat;
-                height: 100dvh;
-            }
-
-            .table-container {
-                margin-top: 100px;
-            }
-
-            table {
-                text-align: center;
-            }
-
-            tr>td {
-                color: aliceblue !important;
-                font-size: 1.3rem;
-            }
-
-            select {
-                text-align: center;
-            }
-        </style>
+		* {
+			box-sizing: border-box;
+			margin: 0;
+		}
+		
+		body {
+			background: rgb(19, 47, 50);
+			background: linear-gradient(18deg, rgba(19, 47, 50, 1) -50%, rgba(120, 247, 255, 1) 150%);
+			background-repeat: no-repeat;
+			height: 100dvh;
+		}
+		
+		.table-container {
+			margin-top: 100px;
+		}
+		
+		table {
+			text-align: center;
+			border: 3px solid black !important;
+			border-radius: 10px;
+			padding: 0.4em;
+			border-collapse: separate;
+		}
+		
+		tr > td {
+			color: aliceblue !important;
+			font-size: 1.3rem;
+		}
+		th {
+			border-style: hidden !important;
+		}
+		tr:last-child > td {
+			border-style: hidden !important;
+		}
+		select {
+			text-align: center;
+		}
+		.form-select {
+			background-color: #9f9d9d;
+			color: aliceblue;
+		}
+	    </style>
 
     </head>
 
@@ -248,10 +261,9 @@ export const htmlTemplate = `
                 <thead>
                     <tr>
                         <th scope="col">File</th>
-                        <th scope="col">sLoc</th>
+                        <th scope="col" onclick="sortTable()">sLoc</th>
                         <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    // append here
 `;

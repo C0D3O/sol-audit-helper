@@ -3,10 +3,7 @@ import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, Extension
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, appendFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
-
-import { promisify } from 'node:util';
-import { exec } from 'node:child_process';
-const promisifyExec = promisify(exec);
+import sloc from 'node-sloc';
 
 import { getFolders, htmlTemplate, osPathFixer, pathLogic, pathLogic2 } from './utils';
 
@@ -376,22 +373,17 @@ export function activate(context: ExtensionContext) {
 
 			// CREATE A SLOC REPORT
 			writeFileSync(`${cwd}/sLoc.html`, htmlTemplate);
+			let id = 'a';
 			for await (let scopeFileName of scopeNames) {
 				try {
-					let id = 'a';
 					id += id;
-					const command = 'cloc ' + newPath + scopeFileName + ' --csv';
+					console.log(`${newPath}${scopeFileName}`);
 
-					const { stdout } = await promisifyExec(command.trim());
-					const lines = stdout.split('\n');
-					let fileName = '';
-					let sLocNumber = '';
-					for await (let line of lines) {
-						if (line.split(',')[1] === 'Solidity') {
-							fileName = line.split(',')[0];
-							sLocNumber = line.split(',').pop()!;
-						}
-					}
+					const sLocOutput = await sloc({ path: `${newPath}${scopeFileName}`, extensions: ['sol'] });
+
+					let fileName = sLocOutput?.paths[0].split('/').pop()?.slice(0, -4);
+					let sLocNumber = sLocOutput?.sloc;
+
 					const DataToAppend = `
 		<tr>
 			<td>${fileName}</td>
@@ -409,70 +401,75 @@ export function activate(context: ExtensionContext) {
 				} catch (error) {
 					console.log(error);
 				}
-				const dataToWrapTheHtmlWith = `
-		</tbody>
-	            </table>
-	        </div>
-	        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
-	            integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
-	            crossorigin="anonymous"></script>
-				<script>
-				const sortTable = () => {
-					let table, rows, switching, i, x, y, shouldSwitch;
-					table = document.querySelector('table');
-					switching = true;
-		
-					while (switching) {
-						switching = false;
-						rows = table.rows;
-		
-						for (i = 1; i < rows.length - 1; i++) {
-							shouldSwitch = false;
-							x = parseInt(rows[i].getElementsByTagName('td')[1].innerHTML);
-							y = parseInt(rows[i + 1].getElementsByTagName('td')[1].innerHTML);
-		
-							if (x < y) {
-								shouldSwitch = true;
-								break;
+			}
+			const dataToWrapTheHtmlWith = `
+			</tbody>
+					</table>
+				</div>
+				<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+					integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+					crossorigin="anonymous"></script>
+					<script>
+					let ascending = true;
+
+					const sortTable = () => {
+						let table, rows, switching, i, x, y, shouldSwitch;
+						table = document.querySelector('table');
+						switching = true;
+
+						while (switching) {
+							switching = false;
+							rows = table.rows;
+
+							for (i = 1; i < rows.length - 1; i++) {
+								shouldSwitch = false;
+								x = parseInt(rows[i].getElementsByTagName('td')[1].innerHTML);
+								y = parseInt(rows[i + 1].getElementsByTagName('td')[1].innerHTML);
+
+								if (ascending ? x > y : x < y) {
+									shouldSwitch = true;
+									break;
+								}
+							}
+
+							if (shouldSwitch) {
+								rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+								switching = true;
 							}
 						}
-		
-						if (shouldSwitch) {
-							rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-							switching = true;
-						}
-					}
-				};
-		
-				const changeFunc = (selectObject) => {
-					const value = selectObject.value;
-					window.sessionStorage.setItem(selectObject.id, value);
-				};
-		
-				window.onload = () => {
-					sortTable();
-		
-					Object.keys(sessionStorage).forEach(function (selector) {
-						const value = sessionStorage.getItem(selector);
-		
-						document
-							.querySelector('#' + selector)
-							.querySelectorAll('option')
-							.forEach((option) => {
-								if (option.value === value) {
-									console.log('true');
-									option.selected = true;
-								}
-							});
-					});
-				};
-			</script>
-	    </body>
+						
+						// Toggle sorting direction for the next function call
+						ascending = !ascending;
+					};
 
-	</html>`;
-				appendFileSync(`${cwd}/sLoc.html`, dataToWrapTheHtmlWith);
-			}
-
+			
+					const changeFunc = (selectObject) => {
+						const value = selectObject.value;
+						window.sessionStorage.setItem(selectObject.id, value);
+					};
+			
+					window.onload = () => {
+						sortTable();
+			
+						Object.keys(sessionStorage).forEach(function (selector) {
+							const value = sessionStorage.getItem(selector);
+			
+							document
+								.querySelector('#' + selector)
+								.querySelectorAll('option')
+								.forEach((option) => {
+									if (option.value === value) {
+										console.log('true');
+										option.selected = true;
+									}
+								});
+						});
+					};
+				</script>
+			</body>
+	
+		</html>`;
+			appendFileSync(`${cwd}/sLoc.html`, dataToWrapTheHtmlWith);
 			// START GLOBAL PATH EDITING
 			await globalEdit();
 
