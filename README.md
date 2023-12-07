@@ -14,7 +14,7 @@ Now it can also generate sLoc file for scope files and parse them for potential 
 
 ## Extension Settings
 
-Press F1, find the sol-paths-helper command and run it to activate the extension
+Press F1, find the Run Solidity Paths Helper command and run it to activate the extension
 
 ## Known Issues
 
