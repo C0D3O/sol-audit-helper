@@ -220,7 +220,7 @@ export const htmlTemplate = `
 			background: rgb(19, 47, 50);
 			background: linear-gradient(18deg, rgba(19, 47, 50, 1) -50%, rgba(120, 247, 255, 1) 150%);
 			background-repeat: no-repeat;
-			height: 100dvh;
+			height: 100vh;
 		}
 		
 		.table-container {
@@ -258,7 +258,7 @@ export const htmlTemplate = `
 
     <body>
         <div class="table-container d-flex justify-content-center">
-            <table class="table table-striped w-75">
+            <table class="table table-striped w-50">
                 <thead>
                     <tr>
                         <th scope="col">File</th>

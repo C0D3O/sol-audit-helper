@@ -174,7 +174,7 @@ const globalEdit = async () => {
 		const lines = fileContent.split('\n');
 		let newLines = [];
 		for await (let line of lines) {
-			if (extSettings.parseFilesForPotentialVulnerabilities) {
+			if (extSettings.get('parseFilesForPotentialVulnerabilities')) {
 				if (shouldBeSkipped) {
 					newLines.push(line);
 					shouldBeSkipped = false;
@@ -374,7 +374,7 @@ export function activate(context: ExtensionContext) {
 				});
 			}
 
-			if (extSettings.sLocReportFile) {
+			if (extSettings.get('slocReportFile')) {
 				await generateSlocReport(cwd, scopeNames, newPath);
 			}
 
