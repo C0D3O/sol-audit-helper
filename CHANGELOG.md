@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.5.1*]
+
+- Fixed bugs
+- Added more functionality to sLoc report
+
 ## [0.5.0]
 
 - Added balance checks when parsing files for vulnerabilities
