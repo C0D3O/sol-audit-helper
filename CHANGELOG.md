@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.7.0]
+
+- Fixed bugs related to ['"] import strings
+
 ## [0.5.15]
 
 - Filtered out test files from vulnerability parse

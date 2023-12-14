@@ -85,13 +85,14 @@ const watcherLogic = async (e: Uri) => {
 						//
 						//checking for {} import
 						let theBracesImport = '';
-						if (line.split('"')[0].includes('{')) {
-							const match = line.split('"')[0].match(/\{([^}]+)\}/);
+						if (line.split(/["']/)[0].includes('{')) {
+							const match = line.split(/["']/)[0].match(/\{([^}]+)\}/);
 
 							theBracesImport = match! && match[0]! + ' from ';
 						}
 
-						const depName = path.basename(line.split('"')[1]);
+						const depName = path.basename(line.split(/["']/)[1]);
+						// const depName = line.match(/(?<=\/)[A-Za-z_]+\.sol/)![0];
 
 						if (depName === fileName) {
 							const otherFilePath = osPathFixer(file.path).replace(regexSubtract, '');
@@ -126,12 +127,16 @@ const watcherLogic = async (e: Uri) => {
 				}
 				//checking for {} import
 				let theBracesImport = '';
-				if (line.split('"')[0].includes('{')) {
-					const match = line.split('"')[0].match(/\{([^}]+)\}/);
+				if (line.split(/["']/)[0].includes('{')) {
+					const match = line.split(/["']/)[0].match(/\{([^}]+)\}/);
 
 					theBracesImport = match! && match[0]! + ' from ';
 				}
-				const depName = path.basename(line.split('"')[1]);
+				const depName = path.basename(line.split(/["']/)[1]);
+				// console.log('FILE', file.fsPath);
+
+				// const depName = line.match(/(?<=\/)[A-Za-z_]+\.sol/)![0];
+				// console.log('depName', depName);
 
 				if (movedFileName === depName) {
 					const pathOfAFileToEdit = osPathFixer(file.path).replace(regexSubtract, '');
@@ -154,14 +159,7 @@ const watcherLogic = async (e: Uri) => {
 };
 
 const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
-	const excludePattern = [
-		'**/node_modules/**',
-		'**/lib/**',
-		'**/out/**',
-		'**/.git/**',
-		'**/openzeppelin-contracts-upgradeable/**',
-		'**/openzeppelin-contracts/**',
-	];
+	const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
 	const allFiles = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
@@ -214,13 +212,14 @@ const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
 					//
 					//checking for {} import
 					let theBracesImport = '';
-					if (line.split('"')[0].includes('{')) {
-						const match = line.split('"')[0].match(/\{([^}]+)\}/);
+					if (line.split(/["']/)[0].includes('{')) {
+						const match = line.split(/["']/)[0].match(/\{([^}]+)\}/);
 
 						theBracesImport = match! && match[0]! + ' from ';
 					}
 
-					const depName = path.basename(line.split('"')[1]);
+					const depName = path.basename(line.split(/["']/)[1]);
+					// const depName = line.match(/(?<=\/)[A-Za-z_]+\.sol/)![0];
 
 					if (depName === path.basename(innerFile.path)) {
 						const currentFilePath = osPathFixer(file.path).replace(regexSubtract, '');
