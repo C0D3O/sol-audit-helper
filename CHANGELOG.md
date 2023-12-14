@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.5.15]
+
+- Filtered out test files from vulnerability parse
+
 ## [0.5.1*]
 
 - Fixed bugs

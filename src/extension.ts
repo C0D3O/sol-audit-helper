@@ -29,7 +29,10 @@ const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cache'];
 
 const skipImports = ['hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
-skipImports.push(...getFolders(`${cwd}/lib`));
+
+if (existsSync(`${cwd}/lib`)) {
+	skipImports.push(...getFolders(`${cwd}/lib`));
+}
 
 const skipRegexp = new RegExp(`^import\\s(?:{.*}\\sfrom\\s)?["'](\b(@?)${skipImports.join('|')}\b).*\\.sol["'];`, 'i');
 
@@ -165,13 +168,12 @@ const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
 	const regexp = new RegExp(/^import\s+.*".*?\.sol";/);
 
 	for await (let file of allFiles) {
-		//
 		const fileContent = readFileSync(file.fsPath, 'utf8');
 
 		const lines = fileContent.split('\n');
 		let newLines = [];
 		for await (let line of lines) {
-			if (parseFilesForPotentialVulnerabilities) {
+			if (parseFilesForPotentialVulnerabilities && file.path.split('/').slice(-2, -1)[0] === 'scope') {
 				if (shouldBeSkipped) {
 					newLines.push(line);
 					shouldBeSkipped = false;
@@ -369,6 +371,7 @@ export function activate(context: ExtensionContext) {
 							}
 						}
 					}
+
 					resolve(true);
 				});
 			}
