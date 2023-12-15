@@ -1,4 +1,4 @@
-import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext } from 'vscode';
+import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window } from 'vscode';
 
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync } from 'node:fs';
@@ -274,17 +274,12 @@ export function activate(context: ExtensionContext) {
 				'**/openzeppelin-contracts-upgradeable/**',
 				'**/openzeppelin-contracts/**',
 			];
-			const scopeFiles = await workspace.findFiles('**/scope.*', `{${excludePattern.join(',')}}`);
 			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
 			const hardhatConfig = await workspace.findFiles('**/hardhat.config.{js,ts}', `{${excludePattern.join(',')}}`);
 
 			let neededPath = '';
-			if (scopeFiles.length > 1) {
-				throw Error('More than 2 scope files');
-			} else if (scopeFiles.length === 0) {
-				throw Error('No scope file');
-			}
+
 			// console.log(foundryConfigs.length);
 			// console.log(foundryConfigs);
 
@@ -308,13 +303,15 @@ export function activate(context: ExtensionContext) {
 
 				const srcRegexp = new RegExp(/^src(\s)?=(\s)?["']/i);
 				const matchRegexp = new RegExp(/'(.*)'|"(.*)"/g);
-
+				const redFlagRegexp = new RegExp(/\bffi\b\s*\=\s*\btrue\b/);
 				const configLines = foundryConfigContent.split('\n');
 				for await (let line of configLines) {
 					// console.log(line);
 
-					if (line.replace('\r', '').length === 0 || !srcRegexp.test(line)) {
+					if (line.replace('\r', '').length === 0 || (!srcRegexp.test(line) && !redFlagRegexp.test(line))) {
 						continue;
+					} else if (redFlagRegexp.test(line)) {
+						throw Error('SCAM ALERT!!! FFI is enabled, aborting...');
 					} else {
 						neededPath = line.match(matchRegexp)![0].slice(1, -1);
 
@@ -327,11 +324,20 @@ export function activate(context: ExtensionContext) {
 				throw Error('Scope folder already exists, skipping to watcher');
 			}
 
+			const newPath = neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/';
+			const scopeFiles = await workspace.findFiles('**/scope.*', `{${excludePattern.join(',')}}`);
+
+			if (scopeFiles.length > 1) {
+				throw Error('More than 2 scope files');
+			} else if (scopeFiles.length === 0) {
+				throw Error('No scope file');
+			}
+
+			//
 			if (!existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
 				await mkdir(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/', { recursive: true });
 			}
 
-			const newPath = neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/';
 			const scopeFileContent = readFileSync(scopeFiles[0].fsPath, 'utf8');
 			const lines = scopeFileContent.split('\n');
 			const scopeNames = [];
@@ -383,10 +389,35 @@ export function activate(context: ExtensionContext) {
 			await globalEdit(extSettings.get('parseFilesForPotentialVulnerabilities')!);
 			// and run the watcher
 			runTheWatcher(watcher);
-		} catch (error) {
-			// if error with foundry config paths etc - just watch files
+		} catch (error: any) {
 			console.error(error);
-			runTheWatcher(watcher);
+			if (error.message === 'SCAM ALERT!!! FFI is enabled, aborting...') {
+				await window.showInformationMessage(
+					'SCAM ALERT!!! FFI is enabled, aborting... Do not run any scripts, just carefully delete the repo from your device.'
+				);
+				return;
+			} else if (error.message === 'Scope folder already exists, skipping to watcher') {
+				await window.showInformationMessage('Scope folder already exists, skipping to watcher');
+				runTheWatcher(watcher);
+			} else if (error.message === 'No scope file') {
+				await window.showInformationMessage('No scope file, aborting... Please generate the scope file, reload the window and rerun the extension');
+				return;
+			} else if (error.message === 'More than 2 scope files') {
+				await window.showInformationMessage('More than 2 scope files, aborting... ');
+				return;
+			} else if (error.message === 'No configs found') {
+				await window.showInformationMessage('No configs found, aborting... ');
+				return;
+			} else if (error.message === 'Duplicate file from the scope list found, aborting...') {
+				await window.showInformationMessage('Duplicate from the scope found, aborting...');
+				return;
+			} else if (error.message === 'File from the scope not found, aborting...') {
+				await window.showInformationMessage('File from the scope not found, aborting...');
+				return;
+			} else {
+				// if error with foundry config paths etc - just watch files
+				runTheWatcher(watcher);
+			}
 		}
 	});
 

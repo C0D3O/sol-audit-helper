@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.7.4]
+
+- Added info messages
+- Added repo scam check ( checks if the repo you were given is malicious )
+- Fixed minor bugs
+
 ## [0.7.0]
 
 - Fixed bugs related to ['"] import strings

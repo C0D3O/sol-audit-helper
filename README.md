@@ -19,6 +19,5 @@ Press F1, find the Run Solidity Paths Helper command and run it to activate the 
 ## Known Issues
 
 - Doesn't support simultaneous multiple files movement, or a folder movement for now.
-- No throwing errors for now - the extension won't trigger any popups
 
   **Enjoy!**

@@ -223,7 +223,7 @@ export const htmlTemplate = `
 			background: rgb(35, 41, 20);
 			background: linear-gradient(8deg, rgb(18, 21, 12) 0%, rgb(42, 39, 30) 300%);
 			background-repeat: no-repeat;
-			height: 100vh;
+			min-height: 100vh;
 		}
 		
 		.table-container {
