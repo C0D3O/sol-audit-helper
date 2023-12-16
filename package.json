@@ -26,13 +26,13 @@
 		"configuration": {
 			"title": "Solidity Audit Helper",
 			"properties": {
-				"sol-path-helper.slocReportFile": {
+				"sol-audit-helper.slocReportFile": {
 					"type": "boolean",
 					"default": false,
 					"scope": "application",
 					"description": "Should a sLoc html (interactive) be generated"
 				},
-				"sol-path-helper.parseFilesForPotentialVulnerabilities": {
+				"sol-audit-helper.parseFilesForPotentialVulnerabilities": {
 					"type": "boolean",
 					"default": false,
 					"scope": "application",
