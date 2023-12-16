@@ -19,7 +19,7 @@ An extension for helping auditors freely move solidity files without needing to 
 
 ## Extension Settings
 
-Press F1, find the Run Solidity Paths Helper command and run it to activate the extension
+Press F1, find the Run Solidity Audit Helper command and run it to activate the extension
 
 ## Known Issues
 
