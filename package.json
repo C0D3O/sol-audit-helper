@@ -1,11 +1,11 @@
 {
-	"name": "solidity-paths-helper",
-	"displayName": "Solidity Paths Helper",
+	"name": "solidity-audit-helper",
+	"displayName": "Solidity audit Helper",
 	"description": "Automatically updates sol files imports on file movement. Checks for potential vulnerabilities (unchecked returns, balance checks, calls). Generates sLoc html (interactive), checks foundry config for security issues. Make sure to run it first before running any scripts in a repo",
-	"version": "0.7.4",
+	"version": "0.7.5",
 	"author": "C0D30",
 	"publisher": "C0D30",
-	"repository": "https://github.com/C0D3O/sol-paths-helper",
+	"repository": "https://github.com/C0D3O/sol-audit-helper",
 	"engines": {
 		"vscode": "^1.84.0"
 	},
@@ -19,12 +19,12 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "sol-paths-helpers",
-				"title": "Run Solidity Paths Helper"
+				"command": "sol-audit-helpers",
+				"title": "Run Solidity Audit Helper"
 			}
 		],
 		"configuration": {
-			"title": "Solidity Path Helper",
+			"title": "Solidity Audit Helper",
 			"properties": {
 				"sol-path-helper.slocReportFile": {
 					"type": "boolean",

@@ -259,7 +259,7 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 };
 
 export function activate(context: ExtensionContext) {
-	let disposable = commands.registerCommand('sol-paths-helpers', async () => {
+	let disposable = commands.registerCommand('sol-audit-helpers', async () => {
 		const extSettings = workspace.getConfiguration('sol-path-helper');
 
 		let foundryBaseFolder: string = '';
