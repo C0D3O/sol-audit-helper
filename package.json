@@ -2,7 +2,7 @@
 	"name": "solidity-audit-helper",
 	"displayName": "Solidity audit Helper",
 	"description": "Automatically updates sol files imports on file movement. Checks for potential vulnerabilities (unchecked returns, balance checks, calls). Generates sLoc html (interactive), checks foundry config for security issues. Make sure to run it first before running any scripts in a repo",
-	"version": "0.7.5",
+	"version": "0.7.7",
 	"author": "C0D30",
 	"publisher": "C0D30",
 	"repository": "https://github.com/C0D3O/sol-audit-helper",
