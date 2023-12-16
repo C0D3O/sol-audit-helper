@@ -17,7 +17,7 @@ An extension for helping auditors freely move solidity files without needing to 
 - The path for the src/scope folder is based on the foundry.toml or hardhat.config locations ( if both exists, foundry config path will be selected as the base one)
 - If there are more than one foundry.toml files, the watcher will be activated with the error asking you to reorganize the project to have only 1 foundry.toml file.
 
-## Extension Settings
+## Instructions
 
 Press F1, find the Run Solidity Audit Helper command and run it to activate the extension
 
