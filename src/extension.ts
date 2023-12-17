@@ -259,12 +259,33 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 };
 
 export function activate(context: ExtensionContext) {
-	let disposable = commands.registerCommand('sol-audit-helpers', async () => {
-		const extSettings = workspace.getConfiguration('sol-audit-helper');
-
-		let foundryBaseFolder: string = '';
-
+	(async () => {
 		try {
+			// search for scope files
+			const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
+			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
+
+			for await (let config of foundryConfigs) {
+				const foundryConfigContent = readFileSync(config.fsPath, 'utf8');
+
+				if (/ffi = true/.test(foundryConfigContent)) {
+					throw Error('SCAM ALERT!!! FFI is enabled...');
+				}
+			}
+		} catch (error: any) {
+			if (error.message === 'SCAM ALERT!!! FFI is enabled...') {
+				await window.showErrorMessage('SCAM ALERT!!! FFI is enabled. Do not run any scripts, just carefully delete the repo from your device.');
+				return;
+			}
+		}
+	})();
+
+	let disposable = commands.registerCommand('sol-audit-helpers', async () => {
+		try {
+			const extSettings = workspace.getConfiguration('sol-audit-helper');
+
+			let foundryBaseFolder: string = '';
+
 			// search for scope files
 			const excludePattern = [
 				'**/node_modules/**',
@@ -405,24 +426,23 @@ export function activate(context: ExtensionContext) {
 			} else if (error.message === 'More than 2 scope files') {
 				await window.showInformationMessage('More than 2 scope files, aborting... ');
 				return;
-			} else if (error.message === 'No configs found') {
-				await window.showInformationMessage('No configs found, aborting... ');
-				return;
 			} else if (error.message === 'Duplicate file from the scope list found, aborting...') {
 				await window.showInformationMessage('Duplicate from the scope found, aborting...');
 				return;
 			} else if (error.message === 'File from the scope not found, aborting...') {
 				await window.showInformationMessage('File from the scope not found, aborting...');
 				return;
+			} else if (error.message === 'No configs found') {
+				await window.showInformationMessage('No configs found, aborting... ');
+				return;
 			} else {
 				// if error with foundry config paths etc - just watch files
 				runTheWatcher(watcher);
 			}
 		}
+
+		context.subscriptions.push(disposable);
 	});
-
-	context.subscriptions.push(disposable);
 }
-
 // This method is called when your extension is deactivated
 export function deactivate() {}

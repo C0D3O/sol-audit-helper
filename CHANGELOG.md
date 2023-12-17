@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.8.0]
+
+- Repo scam check now runs automatically
+
 ## [0.7.4]
 
 - Added info messages
