@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.9.0]
+
+- Optimized logic for the watcher ( now it updates paths using only regexp ), removed unnecessary iterations, which should highly improve perfomance
+
 ## [0.8.0]
 
 - Repo scam check now runs automatically

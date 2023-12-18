@@ -3,15 +3,13 @@ import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, Extension
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
-import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2 } from './utils';
+import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2, pathLogicGlobal } from './utils';
 
 const excludePattern = [
 	'**/node_modules/**',
 	'**/lib/**',
 	'**/out/**',
 	'**/.git/**',
-	'**/openzeppelin-contracts-upgradeable/**',
-	'**/openzeppelin-contracts/**',
 	'**/artifacts/**',
 	'**/coverage/**',
 	'**/cache_forge/**',
@@ -29,7 +27,7 @@ const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cache'];
 
 const skipImports = ['hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
-
+// it also reads all folders in the lib folder and adds them to skipImports
 if (existsSync(`${cwd}/lib`)) {
 	skipImports.push(...getFolders(`${cwd}/lib`));
 }
@@ -41,119 +39,95 @@ const balanceCheckRegexp = new RegExp(/(?=.*(>|<|>=|<=|==))(?=.*balance).*/i);
 const uncheckedReturnRegexp = new RegExp(/(\s)?\(bool\s.*\=/i);
 const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
 ///
+const regexSubtract = new RegExp(`^${cwd}(\/)?`);
+const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b)/m);
+const importRegexpNew = new RegExp(`^import\\s(?:(\\{.*\\}\\sfrom\\s))?["'](?!@|\\b${skipImports.join('|')}\\b)(.*)?(\\b\\w+\\.sol\\b)["'];`, 'gm');
 ///
 let shouldBeSkipped = false;
 
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
+
 const watcherLogic = async (e: Uri) => {
 	const filesToWatch = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 
-	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
-	const regexp = new RegExp(/^import\s(?:{.*}\sfrom\s)?["'].*\.sol["'];/i);
-
 	for await (let file of filesToWatch) {
-		// filter out the newly moved file
-
 		const fileName = path.basename(file.path);
 		const movedFileName = path.basename(e.path);
 
 		// LOGIC FOR THE MOVED FILE
 		if (fileName === movedFileName) {
-			const movedFileContent = readFileSync(e.fsPath, 'utf8');
-			// iterate lines
-			let newLines = [];
-			const lines = movedFileContent.split('\n');
+			let movedFileContent = readFileSync(e.fsPath, 'utf8');
 
-			for await (let line of lines) {
-				if (regexp.test(line)) {
-					if (skipRegexp.test(line)) {
-						newLines.push(line);
-						// console.log('SKIPPED', line);
+			const importPart = movedFileContent.match(extractTheImportPart);
+			if (importPart?.length) {
+				const allImports = Array.from(importPart[0].matchAll(importRegexpNew));
+				if (allImports?.length) {
+					for await (let importline of allImports) {
+						let updatedLine: string = '';
+						for await (let file of filesToWatch) {
+							// filter out the newly moved file
+							const fileName = path.basename(file.path);
+							const movedFileName = path.basename(e.path);
+							if (fileName === movedFileName) {
+								continue;
+							}
+							let theBracesImport = importline[1] ? importline[1] : '';
+							const depName = importline[3];
 
-						continue;
+							if (depName === fileName) {
+								console.log('h15');
+
+								const otherFilePath = osPathFixer(file.path).replace(regexSubtract, '');
+								const movedFilePath = osPathFixer(e.path).replace(regexSubtract, '');
+
+								updatedLine = pathLogic(otherFilePath, movedFilePath, depName, theBracesImport);
+							}
+						}
+						movedFileContent = movedFileContent.replace(new RegExp(importline[0], 'm'), updatedLine);
+						console.log(movedFileContent);
 					}
-					// console.log('NOT SKIPPED', line);
 
-					for await (let file of filesToWatch) {
-						// filter out the newly moved file
-						const fileName = path.basename(file.path);
-						const movedFileName = path.basename(e.path);
-						if (fileName === movedFileName) {
-							continue;
-						}
-
-						//
-						//checking for {} import
-						let theBracesImport = '';
-						if (line.split(/["']/)[0].includes('{')) {
-							const match = line.split(/["']/)[0].match(/\{([^}]+)\}/);
-
-							theBracesImport = match! && match[0]! + ' from ';
-						}
-
-						const depName = path.basename(line.split(/["']/)[1]);
-						// const depName = line.match(/(?<=\/)[A-Za-z_]+\.sol/)![0];
-
-						if (depName === fileName) {
-							const otherFilePath = osPathFixer(file.path).replace(regexSubtract, '');
-							const movedFilePath = osPathFixer(e.path).replace(regexSubtract, '');
-
-							line = pathLogic(otherFilePath, movedFilePath, depName, line, theBracesImport);
-						}
+					try {
+						writeFileSync(e.fsPath, movedFileContent, 'utf8');
+					} catch (error) {
+						console.log('WRITING ERROR', error);
 					}
 				}
-				newLines.push(line);
 			}
-			const updatedData = newLines.join('\n');
+			// LOGIC FOR OTHER FILES
+		} else {
+			let otherFileContent = readFileSync(file.fsPath, 'utf8');
+			const importPart = otherFileContent.match(extractTheImportPart);
+			if (importPart?.length) {
+				const allImports = Array.from(importPart[0].matchAll(importRegexpNew));
 
-			try {
-				writeFileSync(file.fsPath, updatedData, 'utf8');
-				newLines = [];
-				continue;
-			} catch (error) {
-				console.log('WRITING ERROR', error);
-			}
-		}
+				if (allImports?.length) {
+					for await (let importline of allImports) {
+						let updatedLine: string = '';
 
-		const aFileContent = readFileSync(file.fsPath, 'utf8');
-		// iterate lines
-		const lines = aFileContent.split('\n');
-		let newLines = [];
-		for await (let line of lines) {
-			if (regexp.test(line)) {
-				if (skipRegexp.test(line)) {
-					newLines.push(line);
-					continue;
-				}
-				//checking for {} import
-				let theBracesImport = '';
-				if (line.split(/["']/)[0].includes('{')) {
-					const match = line.split(/["']/)[0].match(/\{([^}]+)\}/);
+						const depName = importline[3];
 
-					theBracesImport = match! && match[0]! + ' from ';
-				}
-				const depName = path.basename(line.split(/["']/)[1]);
-				// console.log('FILE', file.fsPath);
+						if (depName === movedFileName) {
+							console.log('h15');
 
-				// const depName = line.match(/(?<=\/)[A-Za-z_]+\.sol/)![0];
-				// console.log('depName', depName);
+							const pathOfAFileToEdit = osPathFixer(file.path).replace(regexSubtract, '');
+							const newPath = osPathFixer(e.path).replace(regexSubtract, '');
 
-				if (movedFileName === depName) {
-					const pathOfAFileToEdit = osPathFixer(file.path).replace(regexSubtract, '');
-					const newPath = osPathFixer(e.path).replace(regexSubtract, '');
+							let theBracesImport = importline[1] ? importline[1] : '';
 
-					line = pathLogic2(pathOfAFileToEdit, newPath, depName, line, theBracesImport);
+							updatedLine = pathLogic2(pathOfAFileToEdit, newPath, depName, theBracesImport);
+						}
+						// }
+						otherFileContent = otherFileContent.replace(new RegExp(importline[0], 'm'), updatedLine);
+					}
+
+					try {
+						writeFileSync(file.fsPath, otherFileContent, 'utf8');
+					} catch (error) {
+						console.log('WRITING ERROR', error);
+					}
 				}
 			}
-			newLines.push(line);
-		}
-		const updatedData = newLines.join('\n');
-
-		try {
-			writeFileSync(file.fsPath, updatedData, 'utf8');
-			newLines = [];
-		} catch (error) {
-			console.log('WRITING ERROR', error);
 		}
 	}
 };
@@ -227,7 +201,7 @@ const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
 						// console.log('CURRENT FILE PATH', currentFilePath);
 						// console.log('OTHER FILE PATH', otherFilePath);
 
-						line = pathLogic2(currentFilePath, otherFilePath, depName, line, theBracesImport);
+						line = pathLogicGlobal(currentFilePath, otherFilePath, depName, line, theBracesImport);
 					}
 				}
 			}
@@ -259,26 +233,26 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 };
 
 export function activate(context: ExtensionContext) {
-	(async () => {
-		try {
-			// search for scope files
-			const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
-			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
+	// (async () => {
+	// 	try {
+	// 		// search for scope files
+	// 		const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
+	// 		const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
-			for await (let config of foundryConfigs) {
-				const foundryConfigContent = readFileSync(config.fsPath, 'utf8');
+	// 		for await (let config of foundryConfigs) {
+	// 			const foundryConfigContent = readFileSync(config.fsPath, 'utf8');
 
-				if (/ffi = true/.test(foundryConfigContent)) {
-					throw Error('SCAM ALERT!!! FFI is enabled...');
-				}
-			}
-		} catch (error: any) {
-			if (error.message === 'SCAM ALERT!!! FFI is enabled...') {
-				await window.showErrorMessage('SCAM ALERT!!! FFI is enabled. Do not run any scripts, just carefully delete the repo from your device.');
-				return;
-			}
-		}
-	})();
+	// 			if (/ffi = true/.test(foundryConfigContent)) {
+	// 				throw Error('SCAM ALERT!!! FFI is enabled...');
+	// 			}
+	// 		}
+	// 	} catch (error: any) {
+	// 		if (error.message === 'SCAM ALERT!!! FFI is enabled...') {
+	// 			await window.showErrorMessage('SCAM ALERT!!! FFI is enabled. Do not run any scripts, just carefully delete the repo from your device.');
+	// 			return;
+	// 		}
+	// 	}
+	// })();
 
 	let disposable = commands.registerCommand('sol-audit-helpers', async () => {
 		try {
@@ -287,14 +261,7 @@ export function activate(context: ExtensionContext) {
 			let foundryBaseFolder: string = '';
 
 			// search for scope files
-			const excludePattern = [
-				'**/node_modules/**',
-				'**/lib/**',
-				'**/out/**',
-				'**/.git/**',
-				'**/openzeppelin-contracts-upgradeable/**',
-				'**/openzeppelin-contracts/**',
-			];
+			const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
 			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
 			const hardhatConfig = await workspace.findFiles('**/hardhat.config.{js,ts}', `{${excludePattern.join(',')}}`);
@@ -412,13 +379,16 @@ export function activate(context: ExtensionContext) {
 			runTheWatcher(watcher);
 		} catch (error: any) {
 			console.error(error);
+			console.log(error.message);
+
 			if (error.message === 'SCAM ALERT!!! FFI is enabled, aborting...') {
 				await window.showInformationMessage(
 					'SCAM ALERT!!! FFI is enabled, aborting... Do not run any scripts, just carefully delete the repo from your device.'
 				);
 				return;
 			} else if (error.message === 'Scope folder already exists, skipping to watcher') {
-				await window.showInformationMessage('Scope folder already exists, skipping to watcher');
+				// await window.showInformationMessage('Scope folder already exists, skipping to watcher');
+
 				runTheWatcher(watcher);
 			} else if (error.message === 'No scope file') {
 				await window.showInformationMessage('No scope file, aborting... Please generate the scope file, reload the window and rerun the extension');
@@ -436,11 +406,9 @@ export function activate(context: ExtensionContext) {
 				await window.showInformationMessage('No configs found, aborting... ');
 				return;
 			} else {
-				// if error with foundry config paths etc - just watch files
 				runTheWatcher(watcher);
 			}
 		}
-
 		context.subscriptions.push(disposable);
 	});
 }

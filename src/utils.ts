@@ -113,7 +113,8 @@ const diffLevelsLogic = (
 	return line;
 };
 
-export const pathLogic = (otherFilePath: string, movedFilePath: string, depName: string, line: string, theBracesImport?: string) => {
+export const pathLogic = (otherFilePath: string, movedFilePath: string, depName: string, theBracesImport?: string) => {
+	let line;
 	const otherFilePathParts = otherFilePath.split('/');
 	const currentFilePathParts = movedFilePath.split('/');
 
@@ -151,7 +152,7 @@ export const pathLogic = (otherFilePath: string, movedFilePath: string, depName:
 			otherFilePath,
 			theBracesImport!,
 			depName,
-			line
+			line!
 		);
 	}
 
@@ -159,7 +160,9 @@ export const pathLogic = (otherFilePath: string, movedFilePath: string, depName:
 };
 
 // LOGIC FOR THE REST OF THE FILES, that is also suitable for the global edit..
-export const pathLogic2 = (currentFilePath: string, anotherFilePath: string, depName: string, line: string, theBracesImport?: string) => {
+export const pathLogic2 = (currentFilePath: string, anotherFilePath: string, depName: string, theBracesImport?: string) => {
+	let line = '';
+
 	const currentFilePathParts = currentFilePath.split('/');
 	const anotherFilePathParts = anotherFilePath.split('/');
 
@@ -201,7 +204,48 @@ export const pathLogic2 = (currentFilePath: string, anotherFilePath: string, dep
 	}
 	return line;
 };
+export const pathLogicGlobal = (currentFilePath: string, anotherFilePath: string, depName: string, line: string, theBracesImport?: string) => {
+	const currentFilePathParts = currentFilePath.split('/');
+	const anotherFilePathParts = anotherFilePath.split('/');
 
+	// removing the depName
+	currentFilePathParts.pop();
+	anotherFilePathParts.pop();
+
+	const currentFilePathLength = currentFilePathParts.length;
+	const anotherFilePathLength = anotherFilePathParts.length;
+
+	let theAddedPart = '';
+
+	// 1. if both files are in root
+	if (!currentFilePathLength && !anotherFilePathLength) {
+		line = 'import ' + theBracesImport + '"' + './' + depName + '";';
+		// 2. if current file is in root and other file is not
+	} else if (!currentFilePathLength && anotherFilePathLength) {
+		line = 'import ' + theBracesImport + '"' + './' + anotherFilePath + '";';
+		// 3. if current file is not in the root and other is
+	} else if (currentFilePathLength && !anotherFilePathLength) {
+		for (let i = 0; i < currentFilePathLength; i++) {
+			theAddedPart = theAddedPart + '../';
+		}
+		line = 'import ' + theBracesImport + '"' + theAddedPart + depName + '";';
+	}
+	// 4. if both files are not in root
+	else {
+		line = diffLevelsLogic(
+			anotherFilePathLength,
+			currentFilePathLength,
+			anotherFilePathParts,
+			currentFilePathParts,
+			theAddedPart,
+			anotherFilePath,
+			theBracesImport!,
+			depName,
+			line
+		);
+	}
+	return line;
+};
 export const htmlTemplate = `
 <!DOCTYPE html>
 <html>
