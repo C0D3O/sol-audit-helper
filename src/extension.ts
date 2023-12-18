@@ -2,7 +2,7 @@ import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, Extension
 
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, renameSync } from 'node:fs';
-import { rename, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2, pathLogicGlobal } from './utils';
 
 const excludePattern = [
