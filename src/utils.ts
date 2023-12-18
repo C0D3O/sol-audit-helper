@@ -204,6 +204,7 @@ export const pathLogic2 = (currentFilePath: string, anotherFilePath: string, dep
 	}
 	return line;
 };
+// LOGIC FOR THE REST OF THE FILES, that is also suitable for the global edit..
 export const pathLogicGlobal = (currentFilePath: string, anotherFilePath: string, depName: string, line: string, theBracesImport?: string) => {
 	const currentFilePathParts = currentFilePath.split('/');
 	const anotherFilePathParts = anotherFilePath.split('/');

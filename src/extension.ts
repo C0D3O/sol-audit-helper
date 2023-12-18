@@ -23,7 +23,6 @@ const excludePattern = [
 const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 
 /// REGEXP VARS
-///
 const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cache'];
 
 const skipImports = ['hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
@@ -43,11 +42,14 @@ const regexSubtract = new RegExp(`^${cwd}(\/)?`);
 const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b)/m);
 const importRegexpNew = new RegExp(`^import\\s(?:(\\{.*\\}\\sfrom\\s))?["'](?!@|\\b${skipImports.join('|')}\\b)(.*)?(\\b\\w+\\.sol\\b)["'];`, 'gm');
 ///
+///
 let shouldBeSkipped = false;
 
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
 const watcherLogic = async (e: Uri) => {
+	console.log('watcher started');
+
 	const filesToWatch = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 
 	for await (let file of filesToWatch) {
@@ -65,7 +67,6 @@ const watcherLogic = async (e: Uri) => {
 					for await (let importline of allImports) {
 						let updatedLine: string = '';
 						for await (let file of filesToWatch) {
-							// filter out the newly moved file
 							const fileName = path.basename(file.path);
 							const movedFileName = path.basename(e.path);
 							if (fileName === movedFileName) {
@@ -75,8 +76,6 @@ const watcherLogic = async (e: Uri) => {
 							const depName = importline[3];
 
 							if (depName === fileName) {
-								console.log('h15');
-
 								const otherFilePath = osPathFixer(file.path).replace(regexSubtract, '');
 								const movedFilePath = osPathFixer(e.path).replace(regexSubtract, '');
 
@@ -84,7 +83,6 @@ const watcherLogic = async (e: Uri) => {
 							}
 						}
 						movedFileContent = movedFileContent.replace(new RegExp(importline[0], 'm'), updatedLine);
-						console.log(movedFileContent);
 					}
 
 					try {
@@ -108,8 +106,6 @@ const watcherLogic = async (e: Uri) => {
 						const depName = importline[3];
 
 						if (depName === movedFileName) {
-							console.log('h15');
-
 							const pathOfAFileToEdit = osPathFixer(file.path).replace(regexSubtract, '');
 							const newPath = osPathFixer(e.path).replace(regexSubtract, '');
 
@@ -210,11 +206,13 @@ const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
 		const updatedData = newLines.join('\n');
 		try {
 			writeFileSync(file.fsPath, updatedData, 'utf8');
+
 			newLines = [];
 		} catch (error) {
 			console.log('WRITING ERROR', error);
 		}
 	}
+	console.log('global finished');
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
@@ -233,26 +231,26 @@ const runTheWatcher = (watcher: FileSystemWatcher) => {
 };
 
 export function activate(context: ExtensionContext) {
-	// (async () => {
-	// 	try {
-	// 		// search for scope files
-	// 		const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
-	// 		const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
+	(async () => {
+		try {
+			// search for scope files
+			const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
+			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
-	// 		for await (let config of foundryConfigs) {
-	// 			const foundryConfigContent = readFileSync(config.fsPath, 'utf8');
+			for await (let config of foundryConfigs) {
+				const foundryConfigContent = readFileSync(config.fsPath, 'utf8');
 
-	// 			if (/ffi = true/.test(foundryConfigContent)) {
-	// 				throw Error('SCAM ALERT!!! FFI is enabled...');
-	// 			}
-	// 		}
-	// 	} catch (error: any) {
-	// 		if (error.message === 'SCAM ALERT!!! FFI is enabled...') {
-	// 			await window.showErrorMessage('SCAM ALERT!!! FFI is enabled. Do not run any scripts, just carefully delete the repo from your device.');
-	// 			return;
-	// 		}
-	// 	}
-	// })();
+				if (/ffi = true/.test(foundryConfigContent)) {
+					throw Error('SCAM ALERT!!! FFI is enabled...');
+				}
+			}
+		} catch (error: any) {
+			if (error.message === 'SCAM ALERT!!! FFI is enabled...') {
+				await window.showErrorMessage('SCAM ALERT!!! FFI is enabled. Do not run any scripts, just carefully delete the repo from your device.');
+				return;
+			}
+		}
+	})();
 
 	let disposable = commands.registerCommand('sol-audit-helpers', async () => {
 		try {
@@ -375,20 +373,18 @@ export function activate(context: ExtensionContext) {
 
 			// START GLOBAL PATH EDITING
 			await globalEdit(extSettings.get('parseFilesForPotentialVulnerabilities')!);
+			// temporary workaround
+			// await new Promise((r) => setTimeout(r, 2000));
 			// and run the watcher
 			runTheWatcher(watcher);
 		} catch (error: any) {
-			console.error(error);
-			console.log(error.message);
-
 			if (error.message === 'SCAM ALERT!!! FFI is enabled, aborting...') {
 				await window.showInformationMessage(
 					'SCAM ALERT!!! FFI is enabled, aborting... Do not run any scripts, just carefully delete the repo from your device.'
 				);
 				return;
 			} else if (error.message === 'Scope folder already exists, skipping to watcher') {
-				// await window.showInformationMessage('Scope folder already exists, skipping to watcher');
-
+				window.showInformationMessage('Scope folder already exists, skipping to watcher');
 				runTheWatcher(watcher);
 			} else if (error.message === 'No scope file') {
 				await window.showInformationMessage('No scope file, aborting... Please generate the scope file, reload the window and rerun the extension');
@@ -406,6 +402,8 @@ export function activate(context: ExtensionContext) {
 				await window.showInformationMessage('No configs found, aborting... ');
 				return;
 			} else {
+				console.log('ELSE ERROR');
+
 				runTheWatcher(watcher);
 			}
 		}
