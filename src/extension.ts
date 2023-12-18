@@ -1,7 +1,7 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window } from 'vscode';
 
 import path from 'node:path';
-import { existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, renameSync } from 'node:fs';
 import { rename, mkdir } from 'node:fs/promises';
 import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2, pathLogicGlobal } from './utils';
 
@@ -39,7 +39,7 @@ const uncheckedReturnRegexp = new RegExp(/(\s)?\(bool\s.*\=/i);
 const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
 ///
 const regexSubtract = new RegExp(`^${cwd}(\/)?`);
-const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b)/m);
+const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b|^\babstract contract\b)/m);
 const importRegexpNew = new RegExp(`^import\\s(?:(\\{.*\\}\\sfrom\\s))?["'](?!@|\\b${skipImports.join('|')}\\b)(.*)?(\\b\\w+\\.sol\\b)["'];`, 'gm');
 ///
 ///
@@ -48,8 +48,6 @@ let shouldBeSkipped = false;
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
 const watcherLogic = async (e: Uri) => {
-	console.log('watcher started');
-
 	const filesToWatch = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 
 	for await (let file of filesToWatch) {
@@ -82,7 +80,9 @@ const watcherLogic = async (e: Uri) => {
 								updatedLine = pathLogic(otherFilePath, movedFilePath, depName, theBracesImport);
 							}
 						}
-						movedFileContent = movedFileContent.replace(new RegExp(importline[0], 'm'), updatedLine);
+						if (updatedLine) {
+							movedFileContent = movedFileContent.replace(new RegExp(importline[0], 'm'), updatedLine);
+						}
 					}
 
 					try {
@@ -113,8 +113,9 @@ const watcherLogic = async (e: Uri) => {
 
 							updatedLine = pathLogic2(pathOfAFileToEdit, newPath, depName, theBracesImport);
 						}
-						// }
-						otherFileContent = otherFileContent.replace(new RegExp(importline[0], 'm'), updatedLine);
+						if (updatedLine) {
+							otherFileContent = otherFileContent.replace(new RegExp(importline[0], 'm'), updatedLine);
+						}
 					}
 
 					try {
@@ -341,7 +342,7 @@ export function activate(context: ExtensionContext) {
 					let success = false;
 					while (!success) {
 						try {
-							await rename(oldPath, newPath + scopeFileName);
+							renameSync(oldPath, newPath + scopeFileName);
 							success = true;
 						} catch (error: any) {
 							if (error.message.includes('ENOENT')) {
