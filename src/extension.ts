@@ -1,4 +1,4 @@
-import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window } from 'vscode';
+import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window, SnippetString } from 'vscode';
 
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, renameSync } from 'node:fs';
@@ -44,6 +44,13 @@ const importRegexpNew = new RegExp(`^import\\s(?:(\\{.*\\}\\sfrom\\s))?["'](?!@|
 ///
 ///
 let shouldBeSkipped = false;
+//
+const winCwd = cwd.replaceAll('/', '\\\\');
+
+const combinedRegex =
+	process.platform === 'win32'
+		? new RegExp(`${winCwd}\\\\(${foldersToSkip.join('|')}).*`, 'i')
+		: new RegExp(`${cwd}/(${foldersToSkip.join('|')}).*`, 'i');
 
 const watcher = workspace.createFileSystemWatcher(new RelativePattern(cwd, '**/*.sol'));
 
@@ -213,29 +220,73 @@ const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
 			console.log('WRITING ERROR', error);
 		}
 	}
-	console.log('global finished');
+};
+
+const fillerLogic = (e: Uri) => {
+	// FILLER PART
+	console.log('ACTIVE NAME', window.activeTextEditor?.document.uri.fsPath);
+	console.log('NAME', path.basename(e.path));
+	console.log(osPathFixer(e.path));
+
+	if (window.activeTextEditor?.document.uri.fsPath === e.fsPath) {
+		// for test files
+		const fileNameForFiller = path.basename(e.path);
+		if (fileNameForFiller?.includes('.t.')) {
+			const firstLetterToUpperCase = fileNameForFiller.charAt(0).toUpperCase();
+			const fileName = firstLetterToUpperCase + fileNameForFiller.slice(1, -6);
+			const snippet = new SnippetString(`// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.23;
+
+import {Test} from "forge-std/Test.sol";
+import {StdInvariant} from "forge-std/StdInvariant.sol";
+import {console} from "forge-std/console.sol";
+
+contract ${fileName} is StdInvariant, Test {
+	$1
+	function setUp() public {
+		$2
+	}
+
+	function test$3() public{
+		$4
+	}
+}`);
+
+			!window.activeTextEditor?.document.getText() ? window.activeTextEditor?.insertSnippet(snippet) : null;
+			// for regular files
+		} else {
+			const firstLetterToUpperCase = fileNameForFiller.charAt(0).toUpperCase();
+			const fileName = firstLetterToUpperCase + fileNameForFiller.slice(1, -4);
+			const snippet = new SnippetString(`// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.23;
+
+contract ${fileName} {
+		$1
+}`);
+			!window.activeTextEditor?.document.getText() ? window.activeTextEditor?.insertSnippet(snippet) : null;
+		}
+	}
 };
 
 const runTheWatcher = (watcher: FileSystemWatcher) => {
-	const winCwd = cwd.replaceAll('/', '\\\\');
-
-	const combinedRegex =
-		process.platform === 'win32'
-			? new RegExp(`${winCwd}\\\\(${foldersToSkip.join('|')}).*`, 'i')
-			: new RegExp(`${cwd}/(${foldersToSkip.join('|')}).*`, 'i');
-
 	watcher.onDidCreate(async (e) => {
-		if (path.basename(e.fsPath).includes('.sol') && !combinedRegex.test(e.fsPath)) {
+		if (!combinedRegex.test(e.fsPath)) {
 			await watcherLogic(e);
 		}
 	});
 };
 
 export function activate(context: ExtensionContext) {
+	// activate filler separately
+	watcher.onDidCreate(async (e) => {
+		if (!combinedRegex.test(e.fsPath)) {
+			fillerLogic(e);
+		}
+	});
+
 	(async () => {
 		try {
-			// search for scope files
-			const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
+			// search for red flags in configs
 			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
 			for await (let config of foundryConfigs) {
@@ -249,6 +300,8 @@ export function activate(context: ExtensionContext) {
 			if (error.message === 'SCAM ALERT!!! FFI is enabled...') {
 				await window.showErrorMessage('SCAM ALERT!!! FFI is enabled. Do not run any scripts, just carefully delete the repo from your device.');
 				return;
+			} else {
+				console.log(error);
 			}
 		}
 	})();
