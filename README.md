@@ -6,7 +6,7 @@ An extension for helping auditors freely move solidity files without needing to 
 
 - Automatically updates imports on file movement
 - Creates the scope folder with all related files ( reads the scope file )
-- Checks for potential vulnerabilities ( unchecked returns, balance checks, calls ) and makes @audit comment
+- Checks for potential vulnerabilities ( unchecked returns, balance checks, calls ) and makes @audit comments
 - Checks foundry config for security issues. Make sure to run it first before running any scripts in a repo
 - Generates sLoc html ( interactive )
 - When all tasks are done, the watcher is activated and automatically updates import paths on file movement
