@@ -243,12 +243,17 @@ import {console} from "forge-std/console.sol";
 
 contract ${fileName} is StdInvariant, Test {
 	$1
+
 	function setUp() public {
 		$2
 	}
 
-	function test$3() public{
+	function test_$3() public{
 		$4
+	}
+
+	function invariant_$5() public{
+		$6
 	}
 }`);
 
