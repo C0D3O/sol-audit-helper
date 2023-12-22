@@ -137,7 +137,7 @@ const watcherLogic = async (e: Uri) => {
 };
 
 const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
-	const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
+	// const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
 	const allFiles = await workspace.findFiles('**/*.sol', `{${excludePattern.join(',')}}`);
 
 	const regexSubtract = new RegExp(`^${cwd}(\/)?`);
@@ -224,13 +224,13 @@ const globalEdit = async (parseFilesForPotentialVulnerabilities: boolean) => {
 
 const fillerLogic = (e: Uri) => {
 	// FILLER PART
-	console.log('ACTIVE NAME', window.activeTextEditor?.document.uri.fsPath);
-	console.log('NAME', path.basename(e.path));
-	console.log(osPathFixer(e.path));
+	// console.log('ACTIVE NAME', window.activeTextEditor?.document.uri.fsPath);
+	// console.log('NAME', path.basename(e.path));
+	// console.log(osPathFixer(e.path));
 
 	if (window.activeTextEditor?.document.uri.fsPath === e.fsPath) {
-		// for test files
 		const fileNameForFiller = path.basename(e.path);
+		// for test files
 		if (fileNameForFiller?.includes('.t.')) {
 			const firstLetterToUpperCase = fileNameForFiller.charAt(0).toUpperCase();
 			const fileName = firstLetterToUpperCase + fileNameForFiller.slice(1, -6);

@@ -1,7 +1,7 @@
 {
 	"name": "solidity-audit-helper",
 	"displayName": "Solidity Audit Helper",
-	"description": "Automatically updates sol files imports on file movement. Checks for potential vulnerabilities (unchecked returns, balance checks, calls). Generates sLoc html (interactive), checks foundry config for security issues.",
+	"description": "Automatically updates sol files imports on file movement. Checks for potential vulnerabilities (unchecked returns, balance checks, calls). Generates sLoc html (interactive), checks foundry config for security issues. Automatically fills a newly created sol file with a template",
 	"version": "0.9.2",
 	"author": "C0D30",
 	"publisher": "C0D30",
