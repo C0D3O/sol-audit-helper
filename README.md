@@ -10,6 +10,7 @@ An extension for helping auditors freely move solidity files without needing to 
 - Checks foundry config for security issues. Make sure to run it first before running any scripts in a repo
 - Generates sLoc html ( interactive )
 - When all tasks are done, the watcher is activated and automatically updates import paths on file movement
+- Automatically fills a newly created sol file with a template
 
 - If there is a scope file in the working folder, the extension will either read foundry config to get the source folder and create there the scope folder, of it will just create the src/scope folder and move the files from the scope list into it. Then the watcher will be activated ( the thing that edits the paths automatically on a file move). You can place a .sol file anywhere you want inside of the working folder, it will still have all the right import paths, as well as the other files that imports the moved one.
 
