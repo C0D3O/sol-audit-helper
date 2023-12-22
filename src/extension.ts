@@ -252,7 +252,7 @@ contract ${fileName} is StdInvariant, Test {
 	}
 }`);
 
-			!window.activeTextEditor?.document.getText() ? window.activeTextEditor?.insertSnippet(snippet) : null;
+			!window.activeTextEditor?.document.getText() && window.activeTextEditor?.insertSnippet(snippet);
 			// for regular files
 		} else {
 			const firstLetterToUpperCase = fileNameForFiller.charAt(0).toUpperCase();
@@ -263,7 +263,7 @@ pragma solidity 0.8.23;
 contract ${fileName} {
 		$1
 }`);
-			!window.activeTextEditor?.document.getText() ? window.activeTextEditor?.insertSnippet(snippet) : null;
+			!window.activeTextEditor?.document.getText() && window.activeTextEditor?.insertSnippet(snippet);
 		}
 	}
 };
