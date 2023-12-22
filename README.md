@@ -20,7 +20,9 @@ An extension for helping auditors freely move solidity files without needing to 
 
 ## Instructions
 
-Press F1, find the Run Solidity Audit Helper command and run it to activate the extension
+Extension is activated on vscode startup. For scam check and template filler you don't need to do anything.
+
+For creating the scope folder and activating the watcher and all the rest stuff - press F1, find the Run Solidity Audit Helper command and run it.
 
 ## Known Issues
 
