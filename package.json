@@ -2,7 +2,7 @@
 	"name": "solidity-audit-helper",
 	"displayName": "Solidity Audit Helper",
 	"description": "Automatically updates sol files imports on file movement. Checks for potential vulnerabilities (unchecked returns, balance checks, calls). Generates sLoc html (interactive), checks foundry config for security issues. Automatically fills a newly created sol file with a template",
-	"version": "0.9.22",
+	"version": "0.9.23",
 	"author": "C0D30",
 	"publisher": "C0D30",
 	"repository": "https://github.com/C0D3O/sol-audit-helper",
@@ -28,13 +28,13 @@
 			"properties": {
 				"sol-audit-helper.slocReportFile": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"scope": "application",
 					"description": "Should a sLoc html (interactive) be generated"
 				},
 				"sol-audit-helper.parseFilesForPotentialVulnerabilities": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"scope": "application",
 					"description": "Creates audit comments (for now only for calls, unchecked returns, balance checks"
 				}
