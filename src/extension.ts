@@ -311,7 +311,7 @@ export function activate(context: ExtensionContext) {
 		}
 	})();
 
-	let disposable = commands.registerCommand('sol-audit-helpers', async () => {
+	let disposable = commands.registerCommand('solidity-audit-helper', async () => {
 		try {
 			const extSettings = workspace.getConfiguration('sol-audit-helper');
 
@@ -467,6 +467,46 @@ export function activate(context: ExtensionContext) {
 			}
 		}
 		context.subscriptions.push(disposable);
+	});
+
+	let converter = commands.registerCommand('solidity-audit-converter', async () => {
+		const importCompiledContractsRegexp = new RegExp(/import\s\{([\s\w\,\n]+)\}\sfrom\s["'][\.\/]+\btypechain-types\b["']/);
+
+		try {
+			const hardhatTestFiles = await workspace.findFiles('**/test/**/*.{js,test.ts}', `{${excludePattern.join(',')}}`);
+
+			for await (let testFile of hardhatTestFiles) {
+				console.log(path.basename(testFile.fsPath));
+
+				const content = readFileSync(testFile.fsPath, 'utf8');
+				const importList = content.match(importCompiledContractsRegexp);
+				importList?.length && console.log(importList![1]);
+				if (importList?.length) {
+					const importFiles = importList[1].match(/[\w]+/g);
+					if (importFiles?.length) {
+						const testfilePath = osPathFixer(testFile.path).replace(regexSubtract, '');
+						// console.log('TEST FILE PATH', testfilePath);
+
+						for await (let importFile of importFiles) {
+							const findTheFile = await workspace.findFiles(`**/${importFile}.sol`, `{${excludePattern.join(',')}}`);
+							// console.log(findTheFile);
+							const importFilePath = osPathFixer(findTheFile[0].path).replace(regexSubtract, '');
+							// console.log('IMPORT FILES PATH', importFilePath);
+							// console.log('IMPORT FILE', importFile);
+
+							// let importLine = `import {${path.basename(findTheFile[0].path)}} from "${path.basename(findTheFile[0].path)};`; // need to calculate the path
+							let updatedLine = pathLogicGlobal(testfilePath, importFilePath, importFile, '', '').substring(6);
+							const editedLine = `import {${importFile}} from` + updatedLine;
+							console.log(editedLine);
+						}
+					}
+				}
+			}
+		} catch (error) {
+			console.log(error);
+		}
+
+		context.subscriptions.push(converter);
 	});
 }
 // This method is called when your extension is deactivated

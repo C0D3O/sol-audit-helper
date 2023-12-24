@@ -19,8 +19,12 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "sol-audit-helpers",
+				"command": "solidity-audit-helper",
 				"title": "Run Solidity Audit Helper"
+			},
+			{
+				"command": "solidity-audit-converter",
+				"title": "Convert hardhat tests to foundry"
 			}
 		],
 		"configuration": {
