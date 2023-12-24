@@ -446,8 +446,8 @@ export function activate(context: ExtensionContext) {
 				window.showInformationMessage('Scope folder already exists, skipping to watcher');
 				runTheWatcher(watcher);
 			} else if (error.message === 'No scope file') {
-				await window.showInformationMessage('No scope file, aborting... Please generate the scope file, reload the window and rerun the extension');
-				return;
+				window.showInformationMessage('No scope file found... Skipping to watcher');
+				runTheWatcher(watcher);
 			} else if (error.message === 'More than 2 scope files') {
 				await window.showInformationMessage('More than 2 scope files, aborting... ');
 				return;
