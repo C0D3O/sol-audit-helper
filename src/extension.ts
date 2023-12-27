@@ -23,7 +23,20 @@ const excludePattern = [
 const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 
 /// REGEXP VARS
-const foldersToSkip = ['lib', 'out', 'node_modules', '.git', 'cache_forge', 'cache'];
+const foldersToSkip = [
+	'lib',
+	'out',
+	'node_modules',
+	'.git',
+	'cache_forge',
+	'cache',
+	'coverage',
+	'artifacts',
+	'.github',
+	'.vscode',
+	'.yarn',
+	'hh-cache',
+];
 
 const skipImports = ['hardhat', 'lib', 'halmos', 'forge', 'openzeppelin', 'forge-std', 'solady', 'solmate'];
 // it also reads all folders in the lib folder and adds them to skipImports
@@ -39,7 +52,7 @@ const uncheckedReturnRegexp = new RegExp(/(\s)?\(bool\s.*\=/i);
 const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
 ///
 const regexSubtract = new RegExp(`^${cwd}(\/)?`);
-const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b|^\babstract contract\b)/m);
+const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b|^\babstract contract\b|^\binterface\b)/m);
 const importRegexpNew = new RegExp(`^import\\s(?:(\\{.*\\}\\sfrom\\s))?["'](?!@|\\b${skipImports.join('|')}\\b)(.*)?(\\b\\w+\\.sol\\b)["'];`, 'gm');
 ///
 ///
@@ -81,6 +94,8 @@ const watcherLogic = async (e: Uri) => {
 							const depName = importline[3];
 
 							if (depName === fileName) {
+								console.log('DEPNAME THE SAME!!!');
+
 								const otherFilePath = osPathFixer(file.path).replace(regexSubtract, '');
 								const movedFilePath = osPathFixer(e.path).replace(regexSubtract, '');
 
@@ -276,6 +291,8 @@ contract ${fileName} {
 const runTheWatcher = (watcher: FileSystemWatcher) => {
 	watcher.onDidCreate(async (e) => {
 		if (!combinedRegex.test(e.fsPath)) {
+			console.log('ME GONNA FIRE THE WATHCER LOGIC');
+
 			await watcherLogic(e);
 		}
 	});
@@ -312,13 +329,15 @@ export function activate(context: ExtensionContext) {
 	})();
 
 	let disposable = commands.registerCommand('sol-audit-helpers', async () => {
+		const extSettings = workspace.getConfiguration('sol-audit-helper');
+
 		try {
-			const extSettings = workspace.getConfiguration('sol-audit-helper');
+			// const extSettings = workspace.getConfiguration('sol-audit-helper');
 
 			let foundryBaseFolder: string = '';
 
 			// search for scope files
-			const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
+			// const excludePattern = ['**/node_modules/**', '**/lib/**', '**/out/**', '**/.git/**'];
 			const foundryConfigs = await workspace.findFiles('**/foundry.toml', `{${excludePattern.join(',')}}`);
 
 			const hardhatConfig = await workspace.findFiles('**/hardhat.config.{js,ts}', `{${excludePattern.join(',')}}`);
@@ -334,7 +353,7 @@ export function activate(context: ExtensionContext) {
 						throw Error('No configs found');
 					} else if (!foundryConfigs.length && hardhatConfig.length === 1) {
 						const tempString = osPathFixer(hardhatConfig[0].path).split('/');
-
+						tempString.pop();
 						foundryBaseFolder = tempString.join('/');
 					}
 				}
@@ -379,6 +398,7 @@ export function activate(context: ExtensionContext) {
 			}
 
 			//
+
 			if (!existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
 				await mkdir(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/', { recursive: true });
 			}
@@ -444,9 +464,12 @@ export function activate(context: ExtensionContext) {
 				return;
 			} else if (error.message === 'Scope folder already exists, skipping to watcher') {
 				window.showInformationMessage('Scope folder already exists, skipping to watcher');
+
 				runTheWatcher(watcher);
 			} else if (error.message === 'No scope file') {
 				window.showInformationMessage('No scope file found... Skipping to watcher');
+				await globalEdit(extSettings.get('parseFilesForPotentialVulnerabilities')!);
+
 				runTheWatcher(watcher);
 			} else if (error.message === 'More than 2 scope files') {
 				await window.showInformationMessage('More than 2 scope files, aborting... ');
@@ -462,6 +485,7 @@ export function activate(context: ExtensionContext) {
 				return;
 			} else {
 				console.log('ELSE ERROR');
+				console.log(error);
 
 				runTheWatcher(watcher);
 			}
