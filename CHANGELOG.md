@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.9.3]
+
+- Scope files folder structure preservation
+- Fixed bugs
+
 ## [0.9.2]
 
 - Merged my other extension that autofills solidity files on their creation with a template ( a regular or a test one if the name contains '.t.' )

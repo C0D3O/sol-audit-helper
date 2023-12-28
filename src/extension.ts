@@ -1,8 +1,7 @@
 import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window, SnippetString } from 'vscode';
 
 import path from 'node:path';
-import { existsSync, writeFileSync, readFileSync, renameSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { existsSync, writeFileSync, readFileSync, renameSync, mkdirSync } from 'node:fs';
 import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2, pathLogicGlobal } from './utils';
 
 const excludePattern = [
@@ -52,11 +51,13 @@ const uncheckedReturnRegexp = new RegExp(/(\s)?\(bool\s.*\=/i);
 const alreadyBookmarkedLine = new RegExp(/\/\/\s@audit(-info|-issue|-ok)?/i);
 ///
 const regexSubtract = new RegExp(`^${cwd}(\/)?`);
-const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b|^\babstract contract\b|^\binterface\b)/m);
+const extractTheImportPart = new RegExp(/[\s\S]*(?=^\bcontract\b|^\babstract contract\b|^\binterface\b|^\blibrary\b)/m);
 const importRegexpNew = new RegExp(`^import\\s(?:(\\{.*\\}\\sfrom\\s))?["'](?!@|\\b${skipImports.join('|')}\\b)(.*)?(\\b\\w+\\.sol\\b)["'];`, 'gm');
 ///
 ///
 let shouldBeSkipped = false;
+let globalEditEnabled = true;
+let slocGenerate = true;
 //
 const winCwd = cwd.replaceAll('/', '\\\\');
 
@@ -94,8 +95,6 @@ const watcherLogic = async (e: Uri) => {
 							const depName = importline[3];
 
 							if (depName === fileName) {
-								console.log('DEPNAME THE SAME!!!');
-
 								const otherFilePath = osPathFixer(file.path).replace(regexSubtract, '');
 								const movedFilePath = osPathFixer(e.path).replace(regexSubtract, '');
 
@@ -291,8 +290,6 @@ contract ${fileName} {
 const runTheWatcher = (watcher: FileSystemWatcher) => {
 	watcher.onDidCreate(async (e) => {
 		if (!combinedRegex.test(e.fsPath)) {
-			console.log('ME GONNA FIRE THE WATHCER LOGIC');
-
 			await watcherLogic(e);
 		}
 	});
@@ -379,17 +376,12 @@ export function activate(context: ExtensionContext) {
 					} else {
 						neededPath = line.match(matchRegexp)![0].slice(1, -1);
 
-						console.log('NEEDED PATH', neededPath);
+						// console.log('NEEDED PATH', neededPath);
 					}
 				}
 			}
 
-			if (existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
-				throw Error('Scope folder already exists, skipping to watcher');
-			}
-
-			const newPath = neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/';
-			const scopeFiles = await workspace.findFiles('**/scope.*', `{${excludePattern.join(',')}}`);
+			const scopeFiles = await workspace.findFiles('**/scope.txt', `{${excludePattern.join(',')}}`);
 
 			if (scopeFiles.length > 1) {
 				throw Error('More than 2 scope files');
@@ -397,61 +389,78 @@ export function activate(context: ExtensionContext) {
 				throw Error('No scope file');
 			}
 
-			//
-
-			if (!existsSync(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/')) {
-				await mkdir(neededPath.length ? foundryBaseFolder + `/${neededPath}/scope/` : foundryBaseFolder + '/src/scope/', { recursive: true });
-			}
-
 			const scopeFileContent = readFileSync(scopeFiles[0].fsPath, 'utf8');
 			const lines = scopeFileContent.split('\n');
-			const scopeNames = [];
+			let slocFiles: string[] = [];
 			for await (let line of lines) {
 				if (line.replace('\r', '').length === 0) {
 					continue;
 				}
 				const scopeFileName = path.basename(line.replace('\r', ''));
-				// push scope name for inheritance graph
-				scopeNames.push(scopeFileName);
 
-				let oldPath = line.toString()[0] === '/' ? cwd + line.replace('\r', '') : cwd + '/' + line.replace('\r', '');
+				const findScopeFiles = await workspace.findFiles(`**/${scopeFileName}`, `{${excludePattern.join(',')}}`);
 
-				await new Promise(async (resolve) => {
-					let success = false;
-					while (!success) {
-						try {
-							renameSync(oldPath, newPath + scopeFileName);
-							success = true;
-						} catch (error: any) {
-							if (error.message.includes('ENOENT')) {
-								console.log('Wrong path, searching for the file');
+				if (findScopeFiles.length === 0) {
+					throw Error('File from the scope not found, aborting...');
+				} else if (findScopeFiles.length > 1) {
+					throw Error('Duplicate from the scope found, aborting...');
+				}
+				let oldPath = findScopeFiles[0].fsPath;
 
-								const missingFiles = await workspace.findFiles(`**/${scopeFileName}`, `{${excludePattern.join(',')}}`);
+				if (oldPath.includes('scope')) {
+					console.log('@@@@@@@@@@@@ GLOBAL EDIT DISABLED @@@@@@@@@');
 
-								if (missingFiles.length === 0) {
-									throw Error('File from the scope not found, aborting...');
-								} else if (missingFiles.length > 1) {
-									throw Error('Duplicate from the scope found, aborting...');
+					globalEditEnabled = false;
+					slocGenerate = false;
+					break;
+				} else {
+					await new Promise(async (resolve) => {
+						let success = false;
+						while (!success) {
+							try {
+								let oldPathOriginal = oldPath;
+
+								oldPath = oldPath.includes('\\')
+									? oldPath.replaceAll('\\', '/').replace(foundryBaseFolder, '')
+									: oldPath.replace(foundryBaseFolder, '');
+
+								let newFilePathWithName =
+									foundryBaseFolder + '/' + oldPath.split('/').slice(1)[0] + '/scope/' + oldPath.split('/').slice(2).join('/');
+								let newFilePath = newFilePathWithName.slice(0, newFilePathWithName.lastIndexOf('/'));
+
+								if (!existsSync(newFilePath)) {
+									mkdirSync(newFilePath, { recursive: true });
 								}
-								oldPath = missingFiles[0].fsPath;
-							} else {
-								// if error is about file busy or sth
-								console.log(error);
-								await new Promise((r) => setTimeout(r, 1000));
+
+								// get path for SLOC
+								slocFiles.push(newFilePathWithName);
+
+								renameSync(oldPathOriginal, newFilePathWithName);
+								success = true;
+							} catch (error: any) {
+								console.log('ERROR', error);
+
+								if (error.message.includes('ENOENT')) {
+									console.log('Wrong path');
+									console.log('SCOPE FILES NAME', scopeFileName);
+								} else {
+									// if error is about file busy or sth
+									console.log(error);
+									await new Promise((r) => setTimeout(r, 1000));
+								}
 							}
 						}
-					}
 
-					resolve(true);
-				});
+						resolve(true);
+					});
+				}
 			}
-
-			if (extSettings.get('slocReportFile')) {
-				await generateSlocReport(cwd, scopeNames, newPath);
-			}
+			// remove empty folders in the scope folder
+			//
+			slocGenerate && extSettings.get('slocReportFile') && (await generateSlocReport(cwd, slocFiles));
 
 			// START GLOBAL PATH EDITING
-			await globalEdit(extSettings.get('parseFilesForPotentialVulnerabilities')!);
+			globalEditEnabled && (await globalEdit(extSettings.get('parseFilesForPotentialVulnerabilities')!));
 			// temporary workaround
 			// await new Promise((r) => setTimeout(r, 2000));
 			// and run the watcher
@@ -468,7 +477,6 @@ export function activate(context: ExtensionContext) {
 				runTheWatcher(watcher);
 			} else if (error.message === 'No scope file') {
 				window.showInformationMessage('No scope file found... Skipping to watcher');
-				await globalEdit(extSettings.get('parseFilesForPotentialVulnerabilities')!);
 
 				runTheWatcher(watcher);
 			} else if (error.message === 'More than 2 scope files') {

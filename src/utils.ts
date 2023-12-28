@@ -1,5 +1,6 @@
-import { appendFileSync, readdirSync, writeFileSync } from 'fs';
+import { appendFileSync, readdirSync, statSync, writeFileSync } from 'fs';
 import sloc from 'node-sloc';
+// import path from 'path';
 
 export const getFolders = (source: string) =>
 	readdirSync(source, { withFileTypes: true })
@@ -331,18 +332,17 @@ export const htmlTemplate = `
                 <tbody>
 `;
 
-export const generateSlocReport = async (cwd: string, scopeNames: string[], newPath: string) => {
+export const generateSlocReport = async (cwd: string, slocFiles: string[]) => {
 	// CREATE A SLOC REPORT
-
-	writeFileSync(`${cwd}/sLoc.html`, htmlTemplate);
-	let counter = 0;
-	for await (let scopeFileName of scopeNames) {
-		try {
+	try {
+		writeFileSync(`${cwd}/sLoc.html`, htmlTemplate);
+		let counter = 0;
+		for await (let slocFile of slocFiles) {
 			let id = 'a' + counter;
 			counter++;
 
 			const sLocOutput = await sloc({
-				path: `${newPath}${scopeFileName}`,
+				path: slocFile,
 				extensions: ['sol'],
 			});
 
@@ -363,11 +363,9 @@ export const generateSlocReport = async (cwd: string, scopeNames: string[], newP
 				</td>
 			</tr>`;
 			appendFileSync(`${cwd}/sLoc.html`, DataToAppend);
-		} catch (error) {
-			console.log(error);
 		}
-	}
-	const dataToWrapTheHtmlWith = `
+
+		const dataToWrapTheHtmlWith = `
 		</tbody>
 				</table>
 			</div>
@@ -465,5 +463,36 @@ export const generateSlocReport = async (cwd: string, scopeNames: string[], newP
 		</body>
 
 	</html>`;
-	appendFileSync(`${cwd}/sLoc.html`, dataToWrapTheHtmlWith);
+		appendFileSync(`${cwd}/sLoc.html`, dataToWrapTheHtmlWith);
+	} catch (error) {
+		console.log(error);
+	}
 };
+
+// export const scopeGen = async (dirPath: string, fileList: string[] = []) => {
+// 	function getAllFiles(dirPath: string, fileList: string[] = []) {
+// 		const files = readdirSync(dirPath);
+
+// 		files.forEach((file: string) => {
+// 			const filePath = path.join(dirPath, file);
+// 			const fileStat = statSync(filePath);
+
+// 			if (fileStat.isDirectory()) {
+// 				// If the current file is a directory, recursively call getAllFiles
+// 				getAllFiles(filePath, fileList);
+// 			} else {
+// 				// If it's a file, add it to the list
+// 				if (file.includes('.sol')) {
+// 					fileList.push(filePath);
+// 				}
+// 			}
+// 		});
+
+// 		return fileList;
+// 	}
+// 	writeFileSync('./scope.txt', '');
+
+// 	getAllFiles('./contracts').forEach((file) => {
+// 		appendFileSync('./scope.txt', file.split('\\').pop() + '\n');
+// 	});
+// };
