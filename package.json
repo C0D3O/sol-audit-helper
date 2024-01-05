@@ -21,6 +21,10 @@
 			{
 				"command": "sol-audit-helpers",
 				"title": "Run Solidity Audit Helper"
+			},
+			{
+				"command": "sol-audit-convert",
+				"title": "Run Solidity Audit HH-Foundry Converter"
 			}
 		],
 		"configuration": {

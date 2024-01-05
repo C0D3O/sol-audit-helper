@@ -500,6 +500,370 @@ export function activate(context: ExtensionContext) {
 		}
 		context.subscriptions.push(disposable);
 	});
+
+	let disposable2 = commands.registerCommand('sol-audit-convert', async () => {
+		const template = (fileName: string, importStatements?: string) => {
+			return `// SPDX-License-Identifier: UNLICENSED
+		pragma solidity 0.8.23;
+		
+		${importStatements}
+		
+		import {Test} from "forge-std/Test.sol";
+		import {StdInvariant} from "forge-std/StdInvariant.sol";
+		import {console} from "forge-std/console.sol";
+		
+		contract ${fileName} is StdInvariant, Test {
+		
+		`;
+		};
+		try {
+			const testFiles = await workspace.findFiles(`test/*.{js,ts}`, `{${excludePattern.join(',')}}`);
+
+			for await (let testFile of testFiles) {
+				// const thePath = __dirname + '\\test\\smartVault.js';
+				let fileContent = readFileSync(testFile.fsPath, 'utf-8');
+				let declarationStorageVars: string[] = [];
+
+				//bigNumber fix
+				const bigNumRegexp = new RegExp(/\bBigNumber.from\b\((\d+)\)/g);
+				for (let bignum of fileContent.matchAll(bigNumRegexp)) {
+					const numbr = bignum[1];
+					fileContent = fileContent.replaceAll(bignum[0], numbr);
+				}
+				// values fix
+				const parseEtherDeclRegexp = new RegExp(/(\w+)\s\=\s\b.*parseEther\(['"](\d+\.?\d?)["']\)/g);
+				for (let parseEther of fileContent.matchAll(parseEtherDeclRegexp)) {
+					const theVar = parseEther[1];
+					const theValue = parseEther[2];
+
+					fileContent = fileContent.replaceAll(parseEther[0], `uint ${theVar[0].toLowerCase()}${theVar.slice(1)} = ${theValue} ether`);
+				}
+				const parseEtherArgRegexp = new RegExp(/((?:ethers\.)?(?:utils\.)?\bparseEther\b)\(['"](\d+\.?\d*)["']\)/g);
+				for (let parseEther of fileContent.matchAll(parseEtherArgRegexp)) {
+					// const ethersLibText = parseEther[1];
+					const theVar = parseEther[2];
+
+					fileContent = fileContent.replaceAll(parseEther[0], `${theVar} ether`);
+				}
+
+				// math fix
+				const addRegexp = new RegExp(/.add\((.*?)\)/g);
+				for (let add of fileContent.matchAll(addRegexp)) {
+					const arg = add[1];
+					fileContent = fileContent.replaceAll(add[0], ` + ${arg}`);
+				}
+				const subRegexp = new RegExp(/\.sub\((.*?)\)/g);
+				for (let sub of fileContent.matchAll(subRegexp)) {
+					const arg = sub[1];
+					fileContent = fileContent.replaceAll(sub[0], ` - ${arg}`);
+				}
+				const divRegexp = new RegExp(/.div\((.*?)\)/g);
+				for (let div of fileContent.matchAll(divRegexp)) {
+					const arg = div[1];
+					fileContent = fileContent.replaceAll(div[0], ` / ${arg}`);
+				}
+				const mulRegexp = new RegExp(/.mul\((.*?)\)/g);
+				for (let mul of fileContent.matchAll(mulRegexp)) {
+					const arg = mul[1];
+					fileContent = fileContent.replaceAll(mul[0], ` * ${arg}`);
+				}
+				const powRegexp = new RegExp(/.pow\((.*?)\)/g);
+				for (let pow of fileContent.matchAll(powRegexp)) {
+					const arg = pow[1];
+					fileContent = fileContent.replaceAll(pow[0], ` ** ${arg}`);
+				}
+
+				// encoding fix as DECLARATION
+				// const formatByte32StringRegexpDECLARATION = new RegExp(/(\w+)\s\=\s.*\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
+				// for (let string of fileContent.matchAll(formatByte32StringRegexpDECLARATION)) {
+				// 	const theVar = string[1];
+				// 	const arg = string[2];
+				// 	fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
+				// }
+				// encoding fix as ARG
+				const formatByte32StringRegexpARG = new RegExp(/(?:\bethers\b\.)?(?:\butils\b\.)?\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
+				for (let string of fileContent.matchAll(formatByte32StringRegexpARG)) {
+					const arg = string[1];
+					// fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
+					fileContent = fileContent.replaceAll(string[0], `keccak256(abi.encode(${arg}))`);
+				}
+
+				// sendTransaction fix
+				const sendTxRegexp = new RegExp(/(\w+).\bsendTransaction\(\{(.*)\}\)/g);
+				for (let sendTxLine of fileContent.matchAll(sendTxRegexp)) {
+					const sender = sendTxLine[1];
+					const args = sendTxLine[2];
+
+					fileContent = fileContent.replaceAll(
+						sendTxLine[0],
+						`(bool sent, ) = ${sender}.call{${args
+							.split(',')
+							.map((arg) => (arg.trim() === 'value' ? 'value: value' : arg))}}("");\nrequire(sent, "call failed")`
+					);
+				}
+
+				// uint replacement
+				const uintRegex = new RegExp(/((\bconst\b|\blet\b|\bvar\b)\s(\w+)\s)\=\s(?:\d+|[A-Za-z\s_()\.]+(?=\*|\/|\+|\-))/g);
+
+				for (let uint of fileContent.matchAll(uintRegex)) {
+					const leftSide = uint[1];
+					const theVar = uint[3];
+					const tempString = uint[0].replaceAll(uint[1], `uint ${theVar[0].toLowerCase()}${theVar.slice(1)}`);
+					fileContent = fileContent.replaceAll(uint[0], tempString);
+				}
+
+				// destructuring fix
+				const destructuringRegexp = new RegExp(/\{(.*)\}(?=\s\=\s)/g);
+				for await (let destructuring of fileContent.matchAll(destructuringRegexp)) {
+					const fixedDestructuring = destructuring[0].replace('{', '(').replaceAll('}', ')');
+					fileContent = fileContent.replace(destructuring[0], fixedDestructuring);
+				}
+				//getSigners replacement
+				let newSignersLine = '';
+
+				const getSignersRegexp = new RegExp(/\[(.*)\]\s=.*\bgetSigners\(\);/);
+				for (let signer of fileContent.match(getSignersRegexp)![1].split(', ')) {
+					// newSignersLine += `address ${signer} = makeAddr("${signer}");\n`;
+					newSignersLine += '';
+					declarationStorageVars.push(`address ${signer} = makeAddr("${signer}")`);
+				}
+				fileContent = fileContent.replace(getSignersRegexp, newSignersLine);
+				fileContent = fileContent.replaceAll(/\b(const|await|let|var)\b/g, '');
+
+				// REFORMAT ADDRESS(ADDRESS)
+				const argsCheckRegexp = new RegExp(/(\w+).address/g);
+				for await (let edit of fileContent.matchAll(argsCheckRegexp)) {
+					fileContent = fileContent.replace(edit[0], `address(${edit[1]})`);
+				}
+
+				// connect users
+				const connectUsersRegexp = new RegExp(/.*(connect\((.*?)\)\.).*/g);
+				for await (let userConnect of fileContent.matchAll(connectUsersRegexp)) {
+					const connectStringPart = userConnect[1];
+					const user = userConnect[2];
+					const newLine = `vm.prank(${user});\n${userConnect[0].replace(connectStringPart, '')}`;
+					fileContent = fileContent.replaceAll(userConnect[0], newLine);
+				}
+
+				let storageVars: string[] = [];
+
+				const deploymentRegexp = new RegExp(/(\w+)\s\=.*Factory\(['"]([A-Za-z0-9_]+)["']\).*deploy\((.*)\)/g);
+				const setupRegexp = new RegExp(/\bbefore.*\{([\s\S]+?)\}\)/);
+
+				const deploymentContractNames: string[] = [];
+
+				let setupScope = fileContent.match(setupRegexp)![1];
+				const deployments = fileContent.matchAll(deploymentRegexp);
+
+				for await (let deployment of deployments) {
+					const theVar = deployment[1];
+					const deploymentContractName = deployment[2];
+					const deploymentArgs = deployment[3];
+
+					// store all contractNames into the array to import them later
+					if (deploymentContractName && !deploymentContractNames.includes(deploymentContractName)) {
+						deploymentContractNames.push(deploymentContractName);
+					}
+
+					!declarationStorageVars.includes(`${theVar[0].toUpperCase()}${theVar.slice(1)} ${theVar[0].toLowerCase()}${theVar.slice(1)}`) &&
+						declarationStorageVars.push(`${theVar[0].toUpperCase()}${theVar.slice(1)} ${theVar[0].toLowerCase()}${theVar.slice(1)}`);
+
+					storageVars.push(`${theVar[0].toLowerCase()}${theVar.slice(1)}`);
+					// add storage vars to the array
+					// replaceAll if they match.tolowercase with the correct storage var
+
+					setupScope = setupScope.replace(
+						deployment[0],
+						`${theVar.toLowerCase()} = new ${theVar[0].toUpperCase()}${theVar.slice(1)}(${deploymentArgs})`
+					);
+					fileContent = fileContent.replace(
+						deployment[0],
+						`${theVar.toLowerCase()} = new ${theVar[0].toUpperCase()}${theVar.slice(1)}(${deploymentArgs})`
+					);
+				}
+				const otherVarsRegexp = new RegExp(/(?<!\bconst\b|\blet\b|\bvar\b)(?:\s|\t+)([A-Z]\w+)\s\=/g);
+
+				for (let otherVar of setupScope.matchAll(otherVarsRegexp)) {
+					declarationStorageVars.push(
+						`${otherVar[1][0].toUpperCase()}${otherVar[1].slice(1)} ${otherVar[1][0].toLowerCase()}${otherVar[1].slice(1)}`
+					);
+
+					!storageVars.includes(otherVar[1]) && storageVars.push(`${otherVar[1][0].toLowerCase()}${otherVar[1].slice(1)}`);
+				}
+				for (let storageVar of storageVars) {
+					// fileContent = fileContent.replaceAll(new RegExp(storageVar, 'gi'), storageVar);
+
+					setupScope = setupScope.replaceAll(new RegExp(`(?<!new\\s)\\b${storageVar}\\b`, 'gi'), storageVar);
+
+					fileContent = fileContent.replaceAll(new RegExp(`(?<!new\\s)\\b${storageVar}\\b`, 'gi'), storageVar);
+				}
+
+				setupScope = 'function setUp() public { \n' + setupScope + '\n}';
+				let storageScope = '';
+				for (let storageVar of declarationStorageVars) {
+					storageScope += storageVar + ';\n';
+				}
+				//
+				//tests scopes
+				let testsArray: string[] = [];
+				const testsRegexp = new RegExp(/\bit\b\(["'](.*)["']\,.*(?!\{)([\s\S]*?)\n\t*\}\);/g);
+				const tests = fileContent.matchAll(testsRegexp);
+				for (let test of tests) {
+					const testName = test[1]
+						.replaceAll(',', '')
+						.split(' ')
+						.map((eachWord, index) => (index === 0 ? eachWord : eachWord[0].toUpperCase() + eachWord.slice(1)))
+						.join('');
+
+					let testContent = test[2];
+
+					// expect not revert
+					const expectNotRevertRegex = new RegExp(/(?:\w+\s\=\s(.*;)\n*\t*\s*)?\bexpect\b\((.*)\).*\.\bnot\b.*(?:\breverted\b)/g);
+					for (let notReverted of testContent.matchAll(expectNotRevertRegex)) {
+						const callLine = notReverted[1];
+						const theVar = notReverted[2];
+						if (/[^a-zA-Z]+/.test(theVar)) {
+							// it means it's a statement
+							testContent = testContent.replaceAll(notReverted[0], `vm.expectTrue(${theVar})`);
+						} else {
+							testContent = testContent.replaceAll(notReverted[0], `(bool ${theVar}, ) = ${callLine}\nvm.expectTrue(${theVar})`);
+						}
+					}
+					//expect revert
+					const expectedRevertRegex = new RegExp(/(?:\w+\s\=\s(.*;)\n*\t*\s*)?\bexpect\b\((.*)\).*(?:\breverted|revertedWith\b)\(['"](.*)['"]\)\;/g);
+
+					for (let expectedRevert of testContent.matchAll(expectedRevertRegex)) {
+						const correctLine = expectedRevert[1];
+						const theVarOrStatement = expectedRevert[2];
+						const revertMessage = expectedRevert[3];
+
+						if (revertMessage && correctLine) {
+							testContent = testContent.replaceAll(expectedRevert[0], `vm.expectRevert("${revertMessage}");\n${correctLine}`);
+						} else if (revertMessage && !correctLine) {
+							if (/[^a-zA-Z]+/.test(theVarOrStatement)) {
+								// it means it's a statement
+								testContent = testContent.replaceAll(expectedRevert[0], `vm.expectRevert("${revertMessage}");\n${theVarOrStatement};`);
+							} else {
+								testContent = testContent.replaceAll(expectedRevert[0], `vm.expectRevert("${revertMessage}");`);
+							}
+						} else {
+							testContent = testContent.replaceAll(expectedRevert[0], `vm.expectRevert()`);
+						}
+					}
+
+					//expect eq
+					const expectEqRegexp = new RegExp(/\bexpect\((.*)\)\.(?:\bto.equal\b|\bequals\b|is\b)\((.*)\)/g);
+					for (let expectEq of testContent.matchAll(expectEqRegexp)) {
+						const firstVar = expectEq[1];
+						const secondVar = expectEq[2];
+
+						testContent = testContent.replaceAll(expectEq[0], `assertEq(${firstVar},${secondVar})`);
+					}
+
+					//expec emit
+					// console.log(testContent);
+
+					const expectEmitRegexp = new RegExp(/expect\((.*?)\)\.\b(?:to\.)?emit\b\((.*?)\)(?:\.\bwithArgs\((.*?)\));/g);
+					for (let expectEmit of testContent.matchAll(expectEmitRegexp)) {
+						const theVar = expectEmit[1];
+						const theEventEmitter = expectEmit[2].split(',')[0].trim();
+						const theEventName = expectEmit[2].split(',')[1].trim().slice(1, -1);
+						const theArgs = expectEmit[3];
+
+						// const getTheNeededStateMentRegexp = new RegExp(`(?<=\\bexpect\\b\\(\\b${theVar}\\b\\)[\\s\\S]*)${theVar}\\s\\=(.*)`);
+						// const theStatement = testContent.match(getTheNeededStateMentRegexp);
+
+						// if (theStatement) {
+						testContent = testContent.replaceAll(
+							expectEmit[0],
+							`vm.expectEmit(address(${theEventEmitter}));\n
+						emit ${theEventEmitter}.${theEventName}(${theArgs});\n
+						
+					`
+						);
+						// }
+					}
+
+					// fixing duplicate sent vars
+					let sentVarsCounter = 0;
+					for (let sent of testContent.matchAll(/\(bool sent,\s\)(.*\n\s*\t*)require\(sent/g)) {
+						const index = sent.index;
+						if (sentVarsCounter !== 0) {
+							testContent =
+								testContent.substring(0, index) +
+								`(bool sent${sentVarsCounter}, )${sent[1]}require(sent${sentVarsCounter},` +
+								testContent.substring(index! + `(bool sent${sentVarsCounter}, )${sent[1]}require(sent${sentVarsCounter}`.length);
+						}
+						sentVarsCounter++;
+					}
+
+					// fixing CAPITAL LETTERS vars
+					// THIS NEEDS TO HAVE A FILTER FOR CONSTANTS!!!!!!!!!
+					const capLettersVarsRegexp = new RegExp(/[^'"]\b([A-Z]\w+)\b[^"''(]/g);
+					for (let capLetterVar of testContent.matchAll(capLettersVarsRegexp)) {
+						const theVar = capLetterVar[1];
+						const tempString = capLetterVar[0].replace(theVar, `${theVar[0].toLowerCase()}${theVar.slice(1)}`);
+						testContent = testContent.replaceAll(capLetterVar[0], tempString);
+					}
+
+					// forEach
+					const forEachRegexp = new RegExp(/(\w+)\.\bforEach\(+([^\)]+)\).*\=\>\s*((.*)\((.*)\))\;/g);
+					for (let forEachWord of testContent.matchAll(forEachRegexp)) {
+						const theVar = forEachWord[1];
+						const eachArg = forEachWord[2];
+						let rightSide = forEachWord[3];
+						let rightSideBeforeArgs = forEachWord[4];
+						let args = forEachWord[5];
+
+						args = args.replaceAll(eachArg, `${theVar}[i]`);
+
+						testContent = testContent.replaceAll(
+							forEachWord[0],
+							`for (uint i = 0; 0 < ${theVar}.length; i++){\n
+					${rightSideBeforeArgs}(${args};
+				}`
+						);
+					}
+
+					testsArray.push(`function test_${testName}() public{\n${testContent}}`);
+				}
+
+				const testsText = testsArray.map((test) => test).join('\n\n\t');
+				// console.log(setupScope);
+				const currentTestFileName = path.basename(testFile.fsPath).slice(0, -3);
+
+				const importStatements = '';
+				for await (let contractName of deploymentContractNames) {
+					console.log('CONTRACT NAME', contractName);
+
+					const contractFile = await workspace.findFiles(`**/${contractName}.sol`, `{${excludePattern.join(',')}}`);
+
+					if (contractFile.length !== 1 || contractFile.length > 1) {
+						throw Error('Contract File not found / duplicate contract');
+					} else {
+						const currentPath = `test/${currentTestFileName}`;
+						console.log('CURRENT PATH', currentPath);
+
+						const contractFilePath = osPathFixer(contractFile[0].path).replace(regexSubtract, '');
+						console.log('CONTRACT PATH', contractFilePath);
+
+						let importLine = pathLogic2(currentPath, contractFilePath, contractName, '');
+						console.log('IMPORT LINE', importLine);
+					}
+				}
+
+				writeFileSync(
+					`${cwd}/test/${currentTestFileName}.t.sol`,
+					template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + '}'
+				);
+
+				// read return types from the contracts and put them at vars declaration
+			}
+		} catch (error) {
+			console.log(error);
+		}
+		context.subscriptions.push(disposable2);
+	});
 }
 // This method is called when your extension is deactivated
 export function deactivate() {}
