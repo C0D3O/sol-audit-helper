@@ -502,11 +502,11 @@ export function activate(context: ExtensionContext) {
 	});
 
 	let disposable2 = commands.registerCommand('sol-audit-convert', async () => {
-		const template = (fileName: string, importStatements?: string) => {
+		const template = (fileName: string, importStatements?: string[]) => {
 			return `// SPDX-License-Identifier: UNLICENSED
 		pragma solidity 0.8.23;
 		
-		${importStatements}
+		${importStatements?.join('\n')}
 		
 		import {Test} from "forge-std/Test.sol";
 		import {StdInvariant} from "forge-std/StdInvariant.sol";
@@ -666,7 +666,9 @@ export function activate(context: ExtensionContext) {
 					}
 
 					!declarationStorageVars.includes(`${theVar[0].toUpperCase()}${theVar.slice(1)} ${theVar[0].toLowerCase()}${theVar.slice(1)}`) &&
-						declarationStorageVars.push(`${theVar[0].toUpperCase()}${theVar.slice(1)} ${theVar[0].toLowerCase()}${theVar.slice(1)}`);
+						declarationStorageVars.push(
+							`${deploymentContractName[0].toUpperCase()}${deploymentContractName.slice(1)} ${theVar[0].toLowerCase()}${theVar.slice(1)}`
+						);
 
 					storageVars.push(`${theVar[0].toLowerCase()}${theVar.slice(1)}`);
 					// add storage vars to the array
@@ -674,11 +676,11 @@ export function activate(context: ExtensionContext) {
 
 					setupScope = setupScope.replace(
 						deployment[0],
-						`${theVar.toLowerCase()} = new ${theVar[0].toUpperCase()}${theVar.slice(1)}(${deploymentArgs})`
+						`${theVar.toLowerCase()} = new ${deploymentContractName[0].toUpperCase()}${deploymentContractName.slice(1)}(${deploymentArgs})`
 					);
 					fileContent = fileContent.replace(
 						deployment[0],
-						`${theVar.toLowerCase()} = new ${theVar[0].toUpperCase()}${theVar.slice(1)}(${deploymentArgs})`
+						`${theVar.toLowerCase()} = new ${deploymentContractName[0].toUpperCase()}${deploymentContractName.slice(1)}(${deploymentArgs})`
 					);
 				}
 				const otherVarsRegexp = new RegExp(/(?<!\bconst\b|\blet\b|\bvar\b)(?:\s|\t+)([A-Z]\w+)\s\=/g);
@@ -832,7 +834,7 @@ export function activate(context: ExtensionContext) {
 				// console.log(setupScope);
 				const currentTestFileName = path.basename(testFile.fsPath).slice(0, -3);
 
-				const importStatements = '';
+				const importStatements: string[] = [];
 				for await (let contractName of deploymentContractNames) {
 					console.log('CONTRACT NAME', contractName);
 
@@ -847,8 +849,9 @@ export function activate(context: ExtensionContext) {
 						const contractFilePath = osPathFixer(contractFile[0].path).replace(regexSubtract, '');
 						console.log('CONTRACT PATH', contractFilePath);
 
-						let importLine = pathLogic2(currentPath, contractFilePath, contractName, '');
+						let importLine = pathLogic2(currentPath, contractFilePath, contractName, `{${contractName}} from `);
 						console.log('IMPORT LINE', importLine);
+						!importStatements.includes(importLine) && importStatements.push(importLine);
 					}
 				}
 
