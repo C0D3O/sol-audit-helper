@@ -518,12 +518,42 @@ export function activate(context: ExtensionContext) {
 		};
 		try {
 			const testFiles = await workspace.findFiles(`test/*.{js,ts}`, `{${excludePattern.join(',')}}`);
-
-			for await (let testFile of testFiles) {
-				// const thePath = __dirname + '\\test\\smartVault.js';
+			//need to filter out test files from regular helper files
+			for await (let testFile of testFiles.filter((file: Uri) => /(?:\s+|\t+)\bdescribe\b\(.*\s\{/.test(readFileSync(file.fsPath, 'utf-8')))) {
 				let fileContent = readFileSync(testFile.fsPath, 'utf-8');
 				let declarationStorageVars: string[] = [];
 
+				// js/ts import part
+				const jsTsImportPartRegExp = new RegExp(/([\s\S]+?)\bdescribe\b\(.*\s\{/);
+				const jsTsImportsRegexp = new RegExp(/(?:const|let)\s\{\s*(.*)\}\s\=\s\brequire\(["'](?!\bhardhat|chai|ethers\b])(.*)["']\)\;/g);
+				const importPart = fileContent.match(jsTsImportPartRegExp);
+				if (importPart?.length) {
+					for (let importLine of importPart[0].matchAll(jsTsImportsRegexp)) {
+						const importVars = importLine[1].split(', ');
+
+						const pathAndFile = importLine[2];
+						// console.log(pathAndFile);
+
+						const splitPathAndFileRegexp = new RegExp(/([\.\/]*)(\w+)/);
+						const splitPathAndFile = pathAndFile.match(splitPathAndFileRegexp);
+						if (splitPathAndFile?.length) {
+							const jsTsImportPath = splitPathAndFile[1];
+							const jsTsImportFileName = splitPathAndFile[2];
+							console.log('jsTsImportPath BEFORE', jsTsImportPath);
+
+							const currentPath = osPathFixer(testFile.path).replace(regexSubtract, '');
+
+							const importFilePath = jsTsImportPath.replace(regexSubtract, '');
+							console.log('jsTsImportPath AFTER', importFilePath);
+
+							// console.log('currentPath FILE PATH', currentPath);
+							// console.log('IMPORT FILE PATH', importFilePath);
+							let importLine = pathLogicGlobal(currentPath, importFilePath, jsTsImportFileName, `{${importVars}} from `);
+
+							console.log('IMPORT LINE', importLine);
+						}
+					}
+				}
 				//bigNumber fix
 				const bigNumRegexp = new RegExp(/\bBigNumber.from\b\((\d+)\)/g);
 				for (let bignum of fileContent.matchAll(bigNumRegexp)) {
@@ -836,7 +866,7 @@ export function activate(context: ExtensionContext) {
 
 				const importStatements: string[] = [];
 				for await (let contractName of deploymentContractNames) {
-					console.log('CONTRACT NAME', contractName);
+					// console.log('CONTRACT NAME', contractName);
 
 					const contractFile = await workspace.findFiles(`**/${contractName}.sol`, `{${excludePattern.join(',')}}`);
 
@@ -844,13 +874,13 @@ export function activate(context: ExtensionContext) {
 						throw Error('Contract File not found / duplicate contract');
 					} else {
 						const currentPath = `test/${currentTestFileName}`;
-						console.log('CURRENT PATH', currentPath);
+						// console.log('CURRENT PATH', currentPath);
 
 						const contractFilePath = osPathFixer(contractFile[0].path).replace(regexSubtract, '');
-						console.log('CONTRACT PATH', contractFilePath);
+						// console.log('CONTRACT PATH', contractFilePath);
 
 						let importLine = pathLogic2(currentPath, contractFilePath, contractName, `{${contractName}} from `);
-						console.log('IMPORT LINE', importLine);
+						// console.log('IMPORT LINE', importLine);
 						!importStatements.includes(importLine) && importStatements.push(importLine);
 					}
 				}
