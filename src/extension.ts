@@ -547,10 +547,10 @@ export function activate(context: ExtensionContext) {
 								const impFileContent = readFileSync(theImportFile[0].fsPath, 'utf-8');
 
 								for (let importVar of importVars) {
-									const importVarRegExp = new RegExp(`\\bconst\\b\\s${importVar.trim()}\\s\\=\\s([^\\n]+)\;(.*)?`, 'g');
-									console.log(importVarRegExp);
+									const constantImportVarRegExp = new RegExp(`\\bconst\\b\\s${importVar.trim()}\\s\\=\\s([^\\n]+)\;(.*)?`, 'g');
+									console.log(constantImportVarRegExp);
 
-									const theNeededLine = impFileContent.matchAll(importVarRegExp);
+									const theNeededLine = impFileContent.matchAll(constantImportVarRegExp);
 									for (let constantVar of theNeededLine) {
 										const solLine = `const ${importVar.trim()} = ${constantVar[1]};${constantVar[2] || ''}`;
 
@@ -642,8 +642,13 @@ export function activate(context: ExtensionContext) {
 					);
 				}
 
-				//HERE
-
+				//formatByte32StringRegexpARGStorage
+				const formatByte32StringRegexpARGStorage = new RegExp(/(?:\bethers\b\.)?(?:\butils\b\.)?\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
+				for (let string of fileContent.matchAll(formatByte32StringRegexpARGStorage)) {
+					const arg = string[1];
+					// fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
+					fileContent = fileContent.replaceAll(string[0], `keccak256(abi.encode(${arg}))`);
+				}
 				// destructuring fix
 				const destructuringRegexp = new RegExp(/\{(.*)\}(?=\s\=\s)/g);
 				for await (let destructuring of fileContent.matchAll(destructuringRegexp)) {
@@ -763,11 +768,14 @@ export function activate(context: ExtensionContext) {
 					storageScope = storageScope.replaceAll(uint[0], tempString + ';');
 				}
 				//
-				const formatByte32StringRegexpARGStorage = new RegExp(/(?:\bethers\b\.)?(?:\butils\b\.)?\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
-				for (let string of storageScope.matchAll(formatByte32StringRegexpARGStorage)) {
-					const arg = string[1];
-					// fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
-					storageScope = storageScope.replaceAll(string[0], `keccak256(abi.encode(${arg}))`);
+				storageScope = storageScope.replaceAll(/\b(const|await|let|var)\b/g, '');
+
+				// encoding fix as DECLARATION
+				const formatByte32StringRegexpDECLARATION = new RegExp(/(\w+)\s\=\s.*\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
+				for (let string of storageScope.matchAll(formatByte32StringRegexpDECLARATION)) {
+					const theVar = string[1];
+					const arg = string[2];
+					storageScope = storageScope.replaceAll(string[0], `bytes32 public constant ${theVar} = keccak256(abi.encode(${arg}))`);
 				}
 				//tests scopes
 				let testsArray: string[] = [];
