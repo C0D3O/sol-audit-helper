@@ -1,4 +1,4 @@
-import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window, SnippetString } from 'vscode';
+import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, ExtensionContext, window, SnippetString, comments } from 'vscode';
 
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, renameSync, mkdirSync } from 'node:fs';
@@ -526,12 +526,12 @@ export function activate(context: ExtensionContext) {
 				// js/ts import part
 				const jsTsImportPartRegExp = new RegExp(/([\s\S]+?)\bdescribe\b\(.*\s\{/);
 				const jsTsImportsRegexp = new RegExp(
-					/(?:const|let)\s\{\s*(.*)\}\s\=\s\brequire\(["'](?!\bhardhat|chai|ethers|@|nomicfoundation|@nomicfoundation\b)(.*)["']\)\;/g
+					/(?:const|let)\s\{\s*([\s\S]+)\}\s\=\s\brequire\(["'](?!\bhardhat|chai|ethers|@|nomicfoundation|@nomicfoundation\b)(.*)["']\)\;/g
 				);
 				const importPart = fileContent.match(jsTsImportPartRegExp);
 				if (importPart?.length) {
 					for (let importLine of importPart[0].matchAll(jsTsImportsRegexp)) {
-						const importVars = importLine[1].split(', ');
+						const importVars = importLine[1].split(',');
 
 						const pathAndFile = importLine[2];
 						// console.log(pathAndFile);
@@ -546,17 +546,13 @@ export function activate(context: ExtensionContext) {
 							if (theImportFile.length === 1) {
 								const impFileContent = readFileSync(theImportFile[0].fsPath, 'utf-8');
 
-								for await (let importVar of importVars) {
-									const importVarRegExp = new RegExp(`(?:\\bconst\\b)\\s${importVar.trim()}\\s\\=\\s(.*\\;.*\\n)`);
-									console.log(impFileContent);
+								for (let importVar of importVars) {
+									const importVarRegExp = new RegExp(`\\bconst\\b\\s${importVar.trim()}\\s\\=\\s([^\\n]+)\;(.*)?`, 'g');
+									console.log(importVarRegExp);
 
-									const theNeededLine = impFileContent.match(importVarRegExp);
-									console.log('NEEDED LINE', theNeededLine);
-
-									if (theNeededLine?.length) {
-										console.log('HENKO');
-
-										const solLine = `public constant ${importVar.trim()} = ${theNeededLine[1]}`;
+									const theNeededLine = impFileContent.matchAll(importVarRegExp);
+									for (let constantVar of theNeededLine) {
+										const solLine = `const ${importVar.trim()} = ${constantVar[1]};${constantVar[2] || ''}`;
 
 										!constantFromImportArray.includes(solLine) && constantFromImportArray.push(solLine);
 									}
@@ -568,6 +564,12 @@ export function activate(context: ExtensionContext) {
 					}
 				}
 				// HERE
+				//bigNumber fix
+				const bigNumRegexp = new RegExp(/\bBigNumber.from\b\((\d+)\)/g);
+				for (let bignum of fileContent.matchAll(bigNumRegexp)) {
+					const numbr = bignum[1];
+					fileContent = fileContent.replaceAll(bignum[0], numbr);
+				}
 				// values fix
 				const parseEtherDeclRegexp = new RegExp(/(\w+)\s\=\s\b.*parseEther\(['"](\d+\.?\d?)["']\)/g);
 				for (let parseEther of fileContent.matchAll(parseEtherDeclRegexp)) {
@@ -640,15 +642,7 @@ export function activate(context: ExtensionContext) {
 					);
 				}
 
-				// uint replacement
-				const uintRegex = new RegExp(/((\bconst\b|\blet\b|\bvar\b)\s(\w+)\s)\=\s(?:\d+|[A-Za-z\s_()\.]+(?=\*|\/|\+|\-))/g);
-
-				for (let uint of fileContent.matchAll(uintRegex)) {
-					const leftSide = uint[1];
-					const theVar = uint[3];
-					const tempString = uint[0].replaceAll(uint[1], `uint ${theVar[0].toLowerCase()}${theVar.slice(1)}`);
-					fileContent = fileContent.replaceAll(uint[0], tempString);
-				}
+				//HERE
 
 				// destructuring fix
 				const destructuringRegexp = new RegExp(/\{(.*)\}(?=\s\=\s)/g);
@@ -741,20 +735,40 @@ export function activate(context: ExtensionContext) {
 				setupScope = 'function setUp() public { \n' + setupScope + '\n}';
 				let storageScope = '';
 				for (let constant of constantFromImportArray) {
-					console.log(constant);
-
 					storageScope += constant + '\n';
 				}
 				for (let storageVar of declarationStorageVars) {
 					storageScope += storageVar + ';\n';
 				}
-				//bigNumber fix
-				const bigNumRegexp = new RegExp(/\bBigNumber.from\b\((\d+)\)/g);
-				for (let bignum of fileContent.matchAll(bigNumRegexp)) {
+				// bignum storage
+				for (let bignum of storageScope.matchAll(bigNumRegexp)) {
 					const numbr = bignum[1];
-					fileContent = fileContent.replaceAll(bignum[0], numbr);
+					storageScope = storageScope.replaceAll(bignum[0], numbr);
+				}
+				// uint replacement
+				const uintRegex = new RegExp(/((\bconst\b|\blet\b|\bvar\b)\s(\w+)\s)\=\s(?:\d+|[A-Za-z\s_()\.]+(?=\*|\/|\+|\-))\;(.*)?/g);
+
+				for (let uint of fileContent.matchAll(uintRegex)) {
+					const leftSide = uint[1];
+					const theVar = uint[3];
+					// const comment = uint[4];
+					const tempString = uint[0].replaceAll(uint[1], `uint ${theVar[0].toLowerCase()}${theVar.slice(1)}`);
+					fileContent = fileContent.replaceAll(uint[0], tempString + ';');
+				}
+				for (let uint of storageScope.matchAll(uintRegex)) {
+					const leftSide = uint[1];
+					const theVar = uint[3];
+					// const comment = uint[4];
+					const tempString = uint[0].replaceAll(uint[1], `uint public constant ${theVar}`);
+					storageScope = storageScope.replaceAll(uint[0], tempString + ';');
 				}
 				//
+				const formatByte32StringRegexpARGStorage = new RegExp(/(?:\bethers\b\.)?(?:\butils\b\.)?\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
+				for (let string of storageScope.matchAll(formatByte32StringRegexpARGStorage)) {
+					const arg = string[1];
+					// fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
+					storageScope = storageScope.replaceAll(string[0], `keccak256(abi.encode(${arg}))`);
+				}
 				//tests scopes
 				let testsArray: string[] = [];
 				const testsRegexp = new RegExp(/\bit\b\(["'](.*)["']\,.*(?!\{)([\s\S]*?)\n\t*\}\);/g);
