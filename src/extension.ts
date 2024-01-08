@@ -521,11 +521,13 @@ export function activate(context: ExtensionContext) {
 			//need to filter out test files from regular helper files
 			for await (let testFile of testFiles.filter((file: Uri) => /(?:\s+|\t+)\bdescribe\b\(.*\s\{/.test(readFileSync(file.fsPath, 'utf-8')))) {
 				let fileContent = readFileSync(testFile.fsPath, 'utf-8');
-				let declarationStorageVars: string[] = [];
-
+				const declarationStorageVars: string[] = [];
+				const constantFromImportArray: string[] = [];
 				// js/ts import part
 				const jsTsImportPartRegExp = new RegExp(/([\s\S]+?)\bdescribe\b\(.*\s\{/);
-				const jsTsImportsRegexp = new RegExp(/(?:const|let)\s\{\s*(.*)\}\s\=\s\brequire\(["'](?!\bhardhat|chai|ethers\b])(.*)["']\)\;/g);
+				const jsTsImportsRegexp = new RegExp(
+					/(?:const|let)\s\{\s*(.*)\}\s\=\s\brequire\(["'](?!\bhardhat|chai|ethers|@|nomicfoundation|@nomicfoundation\b)(.*)["']\)\;/g
+				);
 				const importPart = fileContent.match(jsTsImportPartRegExp);
 				if (importPart?.length) {
 					for (let importLine of importPart[0].matchAll(jsTsImportsRegexp)) {
@@ -539,27 +541,33 @@ export function activate(context: ExtensionContext) {
 						if (splitPathAndFile?.length) {
 							const jsTsImportPath = splitPathAndFile[1];
 							const jsTsImportFileName = splitPathAndFile[2];
-							console.log('jsTsImportPath BEFORE', jsTsImportPath);
 
-							const currentPath = osPathFixer(testFile.path).replace(regexSubtract, '');
+							const theImportFile = await workspace.findFiles(`**/${jsTsImportFileName}.{js,ts}`, `{${excludePattern.join(',')}}`);
+							if (theImportFile.length === 1) {
+								const impFileContent = readFileSync(theImportFile[0].fsPath, 'utf-8');
 
-							const importFilePath = jsTsImportPath.replace(regexSubtract, '');
-							console.log('jsTsImportPath AFTER', importFilePath);
+								for await (let importVar of importVars) {
+									const importVarRegExp = new RegExp(`(?:\\bconst\\b)\\s${importVar.trim()}\\s\\=\\s(.*\\;.*\\n)`);
+									console.log(impFileContent);
 
-							// console.log('currentPath FILE PATH', currentPath);
-							// console.log('IMPORT FILE PATH', importFilePath);
-							let importLine = pathLogicGlobal(currentPath, importFilePath, jsTsImportFileName, `{${importVars}} from `);
+									const theNeededLine = impFileContent.match(importVarRegExp);
+									console.log('NEEDED LINE', theNeededLine);
 
-							console.log('IMPORT LINE', importLine);
+									if (theNeededLine?.length) {
+										console.log('HENKO');
+
+										const solLine = `public constant ${importVar.trim()} = ${theNeededLine[1]}`;
+
+										!constantFromImportArray.includes(solLine) && constantFromImportArray.push(solLine);
+									}
+								}
+							} else {
+								throw Error('Duplicate or None Import js Files found');
+							}
 						}
 					}
 				}
-				//bigNumber fix
-				const bigNumRegexp = new RegExp(/\bBigNumber.from\b\((\d+)\)/g);
-				for (let bignum of fileContent.matchAll(bigNumRegexp)) {
-					const numbr = bignum[1];
-					fileContent = fileContent.replaceAll(bignum[0], numbr);
-				}
+				// HERE
 				// values fix
 				const parseEtherDeclRegexp = new RegExp(/(\w+)\s\=\s\b.*parseEther\(['"](\d+\.?\d?)["']\)/g);
 				for (let parseEther of fileContent.matchAll(parseEtherDeclRegexp)) {
@@ -732,8 +740,19 @@ export function activate(context: ExtensionContext) {
 
 				setupScope = 'function setUp() public { \n' + setupScope + '\n}';
 				let storageScope = '';
+				for (let constant of constantFromImportArray) {
+					console.log(constant);
+
+					storageScope += constant + '\n';
+				}
 				for (let storageVar of declarationStorageVars) {
 					storageScope += storageVar + ';\n';
+				}
+				//bigNumber fix
+				const bigNumRegexp = new RegExp(/\bBigNumber.from\b\((\d+)\)/g);
+				for (let bignum of fileContent.matchAll(bigNumRegexp)) {
+					const numbr = bignum[1];
+					fileContent = fileContent.replaceAll(bignum[0], numbr);
 				}
 				//
 				//tests scopes

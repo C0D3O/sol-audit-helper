@@ -248,6 +248,7 @@ export const pathLogicGlobal = (currentFilePath: string, anotherFilePath: string
 	}
 	return line;
 };
+
 export const htmlTemplate = `
 <!DOCTYPE html>
 <html>
