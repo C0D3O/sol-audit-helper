@@ -523,6 +523,7 @@ export function activate(context: ExtensionContext) {
 				let fileContent = readFileSync(testFile.fsPath, 'utf-8');
 				const declarationStorageVars: string[] = [];
 				const constantFromImportArray: string[] = [];
+				const funcsFromImportArray: string[] = [];
 				// js/ts import part
 				const jsTsImportPartRegExp = new RegExp(/([\s\S]+?)\bdescribe\b\(.*\s\{/);
 				const jsTsImportsRegexp = new RegExp(
@@ -555,6 +556,22 @@ export function activate(context: ExtensionContext) {
 										const solLine = `const ${importVar.trim()} = ${constantVar[1]};${constantVar[2] || ''}`;
 
 										!constantFromImportArray.includes(solLine) && constantFromImportArray.push(solLine);
+									}
+									// find all funcs
+									// const funcsImportRegexp = new RegExp(/(?:const|let|var)\s\w+\s\=\s(?:\basync\b\s)?(\(.*\)|_)\s\=\>\s(.*\;|[\s\S]+?\}\;)/g);
+									const funcsImportRegexp = new RegExp(
+										/(?:const|let|var)\s(\w+)\s\=\s(?:\basync\b\s)?(?:\(([\s\S]+?)\)|_)\s\=\>\s(.*\;|[\s\S]+?\}\;)/g
+									);
+
+									const allImpFuncs = impFileContent.matchAll(funcsImportRegexp);
+									for (let impFunc of allImpFuncs) {
+										const funcName = impFunc[1];
+										const funcArgs = impFunc[2];
+										const funcContent = impFunc[3];
+
+										const solLine = `function ${funcName}(${funcArgs.split(',').map((arg) => arg.trim())}) public {\n ${funcContent}}`;
+
+										!funcsFromImportArray.includes(solLine) && funcsFromImportArray.push(solLine);
 									}
 								}
 							} else {
@@ -928,7 +945,7 @@ export function activate(context: ExtensionContext) {
 
 				writeFileSync(
 					`${cwd}/test/${currentTestFileName}.t.sol`,
-					template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + '}'
+					template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + funcsFromImportArray.join('\n') + '}'
 				);
 
 				// read return types from the contracts and put them at vars declaration
