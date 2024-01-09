@@ -526,9 +526,8 @@ export function activate(context: ExtensionContext) {
 				const funcsFromImportArray: string[] = [];
 				// js/ts import part
 				const jsTsImportPartRegExp = new RegExp(/([\s\S]+?)\bdescribe\b\(.*\s\{/);
-				const jsTsImportsRegexp = new RegExp(
-					/(?:const|let)\s\{\s*([\s\S]+)\}\s\=\s\brequire\(["'](?!\bhardhat|chai|ethers|@|nomicfoundation|@nomicfoundation\b)(.*)["']\)\;/g
-				);
+				const jsTsImportsRegexp = new RegExp(/(?:const|let)\s\{\s*([A-Za-z\n\,\t\s_]+?)\}\s\=\s\brequire\(["']([./]+\w+)["']\)\;/g);
+
 				const importPart = fileContent.match(jsTsImportPartRegExp);
 				if (importPart?.length) {
 					for (let importLine of importPart[0].matchAll(jsTsImportsRegexp)) {
