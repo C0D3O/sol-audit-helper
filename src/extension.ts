@@ -560,16 +560,24 @@ export function activate(context: ExtensionContext) {
 									// find all funcs
 									// const funcsImportRegexp = new RegExp(/(?:const|let|var)\s\w+\s\=\s(?:\basync\b\s)?(\(.*\)|_)\s\=\>\s(.*\;|[\s\S]+?\}\;)/g);
 									const funcsImportRegexp = new RegExp(
-										/(?:const|let|var)\s(\w+)\s\=\s(?:\basync\b\s)?(?:\(([\s\S]+?)\)|_)\s\=\>\s(.*\;|[\s\S]+?\}\;)/g
+										/(?:const|let|var)\s(\w+)\s\=\s(?:\basync\b\s)?(?:\(([\s\S]*?)\)|_)\s\=\>\s(?:(.*)\;|([\s\S]+?)\}\;)/g
 									);
 
 									const allImpFuncs = impFileContent.matchAll(funcsImportRegexp);
 									for (let impFunc of allImpFuncs) {
 										const funcName = impFunc[1];
 										const funcArgs = impFunc[2];
-										const funcContent = impFunc[3];
+										let funcContent = impFunc[3] || impFunc[4];
 
-										const solLine = `function ${funcName}(${funcArgs.split(',').map((arg) => arg.trim())}) public {\n ${funcContent}}`;
+										//adding missing { } to the content beginning or ending if needed
+										if (funcContent[0] !== '{') {
+											funcContent = '{' + funcContent;
+										}
+										if (funcContent[funcContent.length - 4] !== ';') {
+											funcContent = funcContent + '}';
+										}
+
+										const solLine = `function ${funcName}(${funcArgs && funcArgs.split(',').map((arg) => arg.trim())}) internal ${funcContent}`;
 
 										!funcsFromImportArray.includes(solLine) && funcsFromImportArray.push(solLine);
 									}
@@ -945,7 +953,7 @@ export function activate(context: ExtensionContext) {
 
 				writeFileSync(
 					`${cwd}/test/${currentTestFileName}.t.sol`,
-					template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + funcsFromImportArray.join('\n') + '}'
+					template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + '\n\n' + funcsFromImportArray.join('\n\n') + '}'
 				);
 
 				// read return types from the contracts and put them at vars declaration
