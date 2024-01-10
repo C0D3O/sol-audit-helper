@@ -3,6 +3,7 @@ import { FileSystemWatcher, Uri, commands, workspace, RelativePattern, Extension
 import path from 'node:path';
 import { existsSync, writeFileSync, readFileSync, renameSync, mkdirSync } from 'node:fs';
 import { generateSlocReport, getFolders, osPathFixer, pathLogic, pathLogic2, pathLogicGlobal } from './utils';
+import { allInOneReplace, allInOneReplaceForStorage, getSignersReplace } from './converterUtils';
 
 const excludePattern = [
 	'**/node_modules/**',
@@ -587,133 +588,23 @@ export function activate(context: ExtensionContext) {
 						}
 					}
 				}
-				// HERE
-				//bigNumber fix
-				const bigNumRegexp = new RegExp(/\bBigNumber.from\b\((\d+)\)/g);
-				for (let bignum of fileContent.matchAll(bigNumRegexp)) {
-					const numbr = bignum[1];
-					fileContent = fileContent.replaceAll(bignum[0], numbr);
+				let internaLFuncsScope = '';
+				for (let internalFunc of funcsFromImportArray) {
+					internaLFuncsScope += '\n\n' + internalFunc;
 				}
-				// values fix
-				const parseEtherDeclRegexp = new RegExp(/(\w+)\s\=\s\b.*parseEther\(['"](\d+\.?\d?)["']\)/g);
-				for (let parseEther of fileContent.matchAll(parseEtherDeclRegexp)) {
-					const theVar = parseEther[1];
-					const theValue = parseEther[2];
-
-					fileContent = fileContent.replaceAll(parseEther[0], `uint ${theVar[0].toLowerCase()}${theVar.slice(1)} = ${theValue} ether`);
-				}
-				const parseEtherArgRegexp = new RegExp(/((?:ethers\.)?(?:utils\.)?\bparseEther\b)\(['"](\d+\.?\d*)["']\)/g);
-				for (let parseEther of fileContent.matchAll(parseEtherArgRegexp)) {
-					// const ethersLibText = parseEther[1];
-					const theVar = parseEther[2];
-
-					fileContent = fileContent.replaceAll(parseEther[0], `${theVar} ether`);
-				}
-
-				// math fix
-				const addRegexp = new RegExp(/.add\((.*?)\)/g);
-				for (let add of fileContent.matchAll(addRegexp)) {
-					const arg = add[1];
-					fileContent = fileContent.replaceAll(add[0], ` + ${arg}`);
-				}
-				const subRegexp = new RegExp(/\.sub\((.*?)\)/g);
-				for (let sub of fileContent.matchAll(subRegexp)) {
-					const arg = sub[1];
-					fileContent = fileContent.replaceAll(sub[0], ` - ${arg}`);
-				}
-				const divRegexp = new RegExp(/.div\((.*?)\)/g);
-				for (let div of fileContent.matchAll(divRegexp)) {
-					const arg = div[1];
-					fileContent = fileContent.replaceAll(div[0], ` / ${arg}`);
-				}
-				const mulRegexp = new RegExp(/.mul\((.*?)\)/g);
-				for (let mul of fileContent.matchAll(mulRegexp)) {
-					const arg = mul[1];
-					fileContent = fileContent.replaceAll(mul[0], ` * ${arg}`);
-				}
-				const powRegexp = new RegExp(/.pow\((.*?)\)/g);
-				for (let pow of fileContent.matchAll(powRegexp)) {
-					const arg = pow[1];
-					fileContent = fileContent.replaceAll(pow[0], ` ** ${arg}`);
-				}
-
-				// encoding fix as DECLARATION
-				// const formatByte32StringRegexpDECLARATION = new RegExp(/(\w+)\s\=\s.*\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
-				// for (let string of fileContent.matchAll(formatByte32StringRegexpDECLARATION)) {
-				// 	const theVar = string[1];
-				// 	const arg = string[2];
-				// 	fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
-				// }
-				// encoding fix as ARG
-				const formatByte32StringRegexpARG = new RegExp(/(?:\bethers\b\.)?(?:\butils\b\.)?\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
-				for (let string of fileContent.matchAll(formatByte32StringRegexpARG)) {
-					const arg = string[1];
-					// fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
-					fileContent = fileContent.replaceAll(string[0], `keccak256(abi.encode(${arg}))`);
-				}
-
-				// sendTransaction fix
-				const sendTxRegexp = new RegExp(/(\w+).\bsendTransaction\(\{(.*)\}\)/g);
-				for (let sendTxLine of fileContent.matchAll(sendTxRegexp)) {
-					const sender = sendTxLine[1];
-					const args = sendTxLine[2];
-
-					fileContent = fileContent.replaceAll(
-						sendTxLine[0],
-						`(bool sent, ) = ${sender}.call{${args
-							.split(',')
-							.map((arg) => (arg.trim() === 'value' ? 'value: value' : arg))}}("");\nrequire(sent, "call failed")`
-					);
-				}
-
-				//formatByte32StringRegexpARGStorage
-				const formatByte32StringRegexpARGStorage = new RegExp(/(?:\bethers\b\.)?(?:\butils\b\.)?\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
-				for (let string of fileContent.matchAll(formatByte32StringRegexpARGStorage)) {
-					const arg = string[1];
-					// fileContent = fileContent.replaceAll(string[0], `bytes32 ${theVar} = keccak256(abi.encode(${arg}))`);
-					fileContent = fileContent.replaceAll(string[0], `keccak256(abi.encode(${arg}))`);
-				}
-				// destructuring fix
-				const destructuringRegexp = new RegExp(/\{(.*)\}(?=\s\=\s)/g);
-				for await (let destructuring of fileContent.matchAll(destructuringRegexp)) {
-					const fixedDestructuring = destructuring[0].replace('{', '(').replaceAll('}', ')');
-					fileContent = fileContent.replace(destructuring[0], fixedDestructuring);
-				}
-				//getSigners replacement
-				let newSignersLine = '';
-
-				const getSignersRegexp = new RegExp(/\[(.*)\]\s=.*\bgetSigners\(\);/);
-				for (let signer of fileContent.match(getSignersRegexp)![1].split(', ')) {
-					// newSignersLine += `address ${signer} = makeAddr("${signer}");\n`;
-					newSignersLine += '';
-					declarationStorageVars.push(`address ${signer} = makeAddr("${signer}")`);
-				}
-				fileContent = fileContent.replace(getSignersRegexp, newSignersLine);
-				fileContent = fileContent.replaceAll(/\b(const|await|let|var)\b/g, '');
-
-				// REFORMAT ADDRESS(ADDRESS)
-				const argsCheckRegexp = new RegExp(/(\w+).address/g);
-				for await (let edit of fileContent.matchAll(argsCheckRegexp)) {
-					fileContent = fileContent.replace(edit[0], `address(${edit[1]})`);
-				}
-
-				// connect users
-				const connectUsersRegexp = new RegExp(/.*(connect\((.*?)\)\.).*/g);
-				for await (let userConnect of fileContent.matchAll(connectUsersRegexp)) {
-					const connectStringPart = userConnect[1];
-					const user = userConnect[2];
-					const newLine = `vm.prank(${user});\n${userConnect[0].replace(connectStringPart, '')}`;
-					fileContent = fileContent.replaceAll(userConnect[0], newLine);
-				}
+				//HERE
+				fileContent = getSignersReplace(fileContent, declarationStorageVars);
+				fileContent = allInOneReplace(fileContent);
+				internaLFuncsScope = allInOneReplace(internaLFuncsScope);
 
 				let storageVars: string[] = [];
 
-				const deploymentRegexp = new RegExp(/(\w+)\s\=.*Factory\(['"]([A-Za-z0-9_]+)["']\).*deploy\((.*)\)/g);
+				//////////////////// SETUP SCOPE !!!!!!!! ///////////////////
 				const setupRegexp = new RegExp(/\bbefore.*\{([\s\S]+?)\}\)/);
+				let setupScope = fileContent.match(setupRegexp)![1];
 
 				const deploymentContractNames: string[] = [];
-
-				let setupScope = fileContent.match(setupRegexp)![1];
+				const deploymentRegexp = new RegExp(/(\w+)\s\=.*Factory\(['"]([A-Za-z0-9_]+)["']\).*deploy\((.*)\)/g);
 				const deployments = fileContent.matchAll(deploymentRegexp);
 
 				for await (let deployment of deployments) {
@@ -739,10 +630,10 @@ export function activate(context: ExtensionContext) {
 						deployment[0],
 						`${theVar.toLowerCase()} = new ${deploymentContractName[0].toUpperCase()}${deploymentContractName.slice(1)}(${deploymentArgs})`
 					);
-					fileContent = fileContent.replace(
-						deployment[0],
-						`${theVar.toLowerCase()} = new ${deploymentContractName[0].toUpperCase()}${deploymentContractName.slice(1)}(${deploymentArgs})`
-					);
+					// fileContent = fileContent.replace(
+					// 	deployment[0],
+					// 	`${theVar.toLowerCase()} = new ${deploymentContractName[0].toUpperCase()}${deploymentContractName.slice(1)}(${deploymentArgs})`
+					// );
 				}
 				const otherVarsRegexp = new RegExp(/(?<!\bconst\b|\blet\b|\bvar\b)(?:\s|\t+)([A-Z]\w+)\s\=/g);
 
@@ -753,57 +644,38 @@ export function activate(context: ExtensionContext) {
 
 					!storageVars.includes(otherVar[1]) && storageVars.push(`${otherVar[1][0].toLowerCase()}${otherVar[1].slice(1)}`);
 				}
+
 				for (let storageVar of storageVars) {
 					// fileContent = fileContent.replaceAll(new RegExp(storageVar, 'gi'), storageVar);
 
 					setupScope = setupScope.replaceAll(new RegExp(`(?<!new\\s)\\b${storageVar}\\b`, 'gi'), storageVar);
 
-					fileContent = fileContent.replaceAll(new RegExp(`(?<!new\\s)\\b${storageVar}\\b`, 'gi'), storageVar);
+					// fileContent = fileContent.replaceAll(new RegExp(`(?<!new\\s)\\b${storageVar}\\b`, 'gi'), storageVar);
 				}
 
 				setupScope = 'function setUp() public { \n' + setupScope + '\n}';
+
+				setupScope = allInOneReplace(setupScope);
+
+				//////////////// STORAGE SCOPE !!!!!!!!!!!!/////////////////
 				let storageScope = '';
 				for (let constant of constantFromImportArray) {
 					storageScope += constant + '\n';
 				}
+				storageScope += '\n';
+
 				for (let storageVar of declarationStorageVars) {
+					//<---- filter out the visual separator (empty new line)
 					storageScope += storageVar + ';\n';
 				}
-				// bignum storage
-				for (let bignum of storageScope.matchAll(bigNumRegexp)) {
-					const numbr = bignum[1];
-					storageScope = storageScope.replaceAll(bignum[0], numbr);
-				}
-				// uint replacement
-				const uintRegex = new RegExp(/((\bconst\b|\blet\b|\bvar\b)\s(\w+)\s)\=\s(?:\d+|[A-Za-z\s_()\.]+(?=\*|\/|\+|\-))\;(.*)?/g);
+				storageScope += '\n';
 
-				for (let uint of fileContent.matchAll(uintRegex)) {
-					const leftSide = uint[1];
-					const theVar = uint[3];
-					// const comment = uint[4];
-					const tempString = uint[0].replaceAll(uint[1], `uint ${theVar[0].toLowerCase()}${theVar.slice(1)}`);
-					fileContent = fileContent.replaceAll(uint[0], tempString + ';');
-				}
-				for (let uint of storageScope.matchAll(uintRegex)) {
-					const leftSide = uint[1];
-					const theVar = uint[3];
-					// const comment = uint[4];
-					const tempString = uint[0].replaceAll(uint[1], `uint public constant ${theVar}`);
-					storageScope = storageScope.replaceAll(uint[0], tempString + ';');
-				}
-				//
-				storageScope = storageScope.replaceAll(/\b(const|await|let|var)\b/g, '');
+				storageScope = allInOneReplaceForStorage(storageScope);
 
-				// encoding fix as DECLARATION
-				const formatByte32StringRegexpDECLARATION = new RegExp(/(\w+)\s\=\s.*\bformatBytes32String\(("\w+"|'\w+'|\w+)\)/g);
-				for (let string of storageScope.matchAll(formatByte32StringRegexpDECLARATION)) {
-					const theVar = string[1];
-					const arg = string[2];
-					storageScope = storageScope.replaceAll(string[0], `bytes32 public constant ${theVar} = keccak256(abi.encode(${arg}))`);
-				}
 				//tests scopes
 				let testsArray: string[] = [];
 				const testsRegexp = new RegExp(/\bit\b\(["'](.*)["']\,.*(?!\{)([\s\S]*?)\n\t*\}\);/g);
+
 				const tests = fileContent.matchAll(testsRegexp);
 				for (let test of tests) {
 					const testName = test[1]
@@ -813,7 +685,6 @@ export function activate(context: ExtensionContext) {
 						.join('');
 
 					let testContent = test[2];
-
 					// expect not revert
 					const expectNotRevertRegex = new RegExp(/(?:\w+\s\=\s(.*;)\n*\t*\s*)?\bexpect\b\((.*)\).*\.\bnot\b.*(?:\breverted\b)/g);
 					for (let notReverted of testContent.matchAll(expectNotRevertRegex)) {
@@ -922,6 +793,8 @@ export function activate(context: ExtensionContext) {
 						);
 					}
 
+					testContent = allInOneReplace(testContent);
+
 					testsArray.push(`function test_${testName}() public{\n${testContent}}`);
 				}
 
@@ -950,10 +823,18 @@ export function activate(context: ExtensionContext) {
 					}
 				}
 
+				// writeFileSync(
+				// 	`${cwd}/test/${currentTestFileName}.t.sol`,
+				// 	template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + '\n\n' + funcsFromImportArray.join('\n\n') + '}'
+				// );
 				writeFileSync(
 					`${cwd}/test/${currentTestFileName}.t.sol`,
-					template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + '\n\n' + funcsFromImportArray.join('\n\n') + '}'
+					template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + '}'
 				);
+				// writeFileSync(
+				// 	`${cwd}/test/${currentTestFileName}.t.sol`,
+				// 	template(currentTestFileName, importStatements) + storageScope + setupScope + testsText + '\n\n' + internaLFuncsScope + '}'
+				// );
 
 				// read return types from the contracts and put them at vars declaration
 			}
@@ -965,3 +846,6 @@ export function activate(context: ExtensionContext) {
 }
 // This method is called when your extension is deactivated
 export function deactivate() {}
+function keyWordReplace(storageScope: string): string {
+	throw new Error('Function not implemented.');
+}
