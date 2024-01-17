@@ -146,14 +146,22 @@ const sendTxReplace = (content: string) => {
 };
 
 const uintReplace = (content: string) => {
-	const uintRegex = new RegExp(/((\bconst\b|\blet\b|\bvar\b)\s(\w+)\s)\=\s(?:\d+|[A-Za-z\s_()\.]+(?=\*|\/|\+|\-))\;(.*)?/g);
+	const uintRegexp = new RegExp(/((\bconst\b|\blet\b|\bvar\b)\s(\w+)\s)\=\s(?:\d+|[A-Za-z\s_()\.]+(?=\*|\/|\+|\-))\;(.*)?/g);
 
-	for (let uint of content.matchAll(uintRegex)) {
+	for (let uint of content.matchAll(uintRegexp)) {
 		const leftSide = uint[1];
 		const theVar = uint[3];
 		// const comment = uint[4];
 		const tempString = uint[0].replaceAll(uint[1], `uint ${theVar[0].toLowerCase()}${theVar.slice(1)}`);
 		content = content.replaceAll(uint[0], tempString + ';');
+	}
+	return content;
+};
+const uintReplaceWithoutTheWord = (content: string) => {
+	const uintRegexpNew = new RegExp(/\s*\t*\w+\s\=\s([\d\._]+)\;/g);
+
+	for (let uint of content.matchAll(uintRegexpNew)) {
+		content = content.replace(uint[0], `uint ${uint[0]}`);
 	}
 	return content;
 };
@@ -165,10 +173,47 @@ const getTypeFix = (content: string) => {
 		const theVar = varWoType[1];
 		const theRightSide = varWoType[2];
 		let tempString = '';
-
+		// for uint
 		if (/(?<!\".*|\bnew\b.*|\'.*)[/*+-]/g.test(theRightSide)) {
 			tempString = varWoType[0].replace(theVar, `uint ${theVar}`);
 			content = content.replace(varWoType[0], tempString);
+		}
+	}
+	return content;
+};
+const getTypeFixStorage = (content: string) => {
+	const varWithoutATypeRegexp = new RegExp(/(?<!\w+)[\s\t](\w+)\s\=\s(.*)?\;/g);
+
+	for (let varWoType of content.matchAll(varWithoutATypeRegexp)) {
+		const theVar = varWoType[1];
+		const theRightSide = varWoType[2];
+		let tempString = '';
+		// for uint
+		if (/(?<!\".*|\bnew\b.*|\'.*)[/*+-]/g.test(theRightSide)) {
+			tempString = varWoType[0].replace(theVar, `uint ${theVar}`);
+			content = content.replace(varWoType[0], tempString);
+		}
+		//for strings and addresses and bytes
+		if (theRightSide.match(/["'](.*)?["']/)) {
+			const theStringOrAddressOrBytes = theRightSide.match(/["'](.*)?["']/)![1];
+
+			if (theStringOrAddressOrBytes[0] === '0' && theStringOrAddressOrBytes[1] === 'x') {
+				// an address
+				if (theStringOrAddressOrBytes.length === 42) {
+					tempString = varWoType[0].replace(theVar, `address public constant ${theVar}`);
+					content = content.replace(varWoType[0], tempString);
+					content = content.replace(theRightSide, theStringOrAddressOrBytes);
+					// bytes
+				} else {
+					tempString = varWoType[0].replace(theVar, `bytes public constant ${theVar}`);
+					content = content.replace(varWoType[0], tempString);
+					content = content.replace(theRightSide, theStringOrAddressOrBytes);
+				}
+				// a string
+			} else {
+				tempString = varWoType[0].replace(theVar, `string public constant ${theVar}`);
+				content = content.replace(varWoType[0], tempString);
+			}
 		}
 	}
 	return content;
@@ -190,6 +235,7 @@ const allFuncsArray = [
 	bigNumReplace,
 	keyWordsReplace,
 	uintReplace,
+	uintReplaceWithoutTheWord,
 	connectUserReplace,
 	parseEtherDeclarationReplace,
 	parseEtherArgReplace,
@@ -251,7 +297,7 @@ const storageKeccakReplace = (storageScope: string) => {
 	return storageScope;
 };
 
-const allFuncsArrayForStorage = [bigNumReplace, storageUintReplace, bytes32StringDeclarationReplace, keyWordsReplace];
+const allFuncsArrayForStorage = [bigNumReplace, storageUintReplace, bytes32StringDeclarationReplace, keyWordsReplace, getTypeFixStorage];
 
 export const allInOneReplaceForStorage = (content: string) => {
 	for (let func of allFuncsArrayForStorage) {

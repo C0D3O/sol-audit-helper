@@ -770,8 +770,11 @@ export function activate(context: ExtensionContext) {
 					const capLettersVarsRegexp = new RegExp(/[^'"]\b([A-Z]\w+)\b[^"''(]/g);
 					for (let capLetterVar of testContent.matchAll(capLettersVarsRegexp)) {
 						const theVar = capLetterVar[1];
-						const tempString = capLetterVar[0].replace(theVar, `${theVar[0].toLowerCase()}${theVar.slice(1)}`);
-						testContent = testContent.replaceAll(capLetterVar[0], tempString);
+
+						if (!constantFromImportArray.find((el) => new RegExp(theVar.trim()).test(el))) {
+							const tempString = capLetterVar[0].replace(theVar, `${theVar[0].toLowerCase()}${theVar.slice(1)}`);
+							testContent = testContent.replaceAll(capLetterVar[0], tempString);
+						}
 					}
 
 					// forEach
@@ -793,7 +796,7 @@ export function activate(context: ExtensionContext) {
 						);
 					}
 
-					testContent = allInOneReplace(testContent);
+					// testContent = allInOneReplace(testContent);
 
 					testsArray.push(`function test_${testName}() public{\n${testContent}}`);
 				}
@@ -846,6 +849,3 @@ export function activate(context: ExtensionContext) {
 }
 // This method is called when your extension is deactivated
 export function deactivate() {}
-function keyWordReplace(storageScope: string): string {
-	throw new Error('Function not implemented.');
-}
