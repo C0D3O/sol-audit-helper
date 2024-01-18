@@ -178,11 +178,36 @@ const getTypeFix = (content: string) => {
 			tempString = varWoType[0].replace(theVar, `uint ${theVar}`);
 			content = content.replace(varWoType[0], tempString);
 		}
+		//for strings and addresses and bytes
+		if (theRightSide.match(/["'](.*)?["']/)) {
+			const theStringOrAddressOrBytes = theRightSide.match(/\=\s["']([A-Za-z0-9]+)["']/);
+			if (theStringOrAddressOrBytes?.length) {
+				const theMatch = theStringOrAddressOrBytes[1];
+
+				if (theMatch[0] === '0' && theMatch[1] === 'x') {
+					// an address
+					if (theMatch.length === 42) {
+						tempString = varWoType[0].replace(theVar, `address ${theVar}`);
+						content = content.replace(varWoType[0], tempString);
+						content = content.replace(theRightSide, `= ${theMatch}`);
+						// bytes
+					} else {
+						tempString = varWoType[0].replace(theVar, `bytes ${theVar}`);
+						content = content.replace(varWoType[0], tempString);
+						content = content.replace(theRightSide, `= ${theMatch}`);
+					}
+					// a string
+				} else {
+					tempString = varWoType[0].replace(theVar, `string ${theVar} =`);
+					content = content.replace(varWoType[0], tempString);
+				}
+			}
+		}
 	}
 	return content;
 };
 const getTypeFixStorage = (content: string) => {
-	const varWithoutATypeRegexp = new RegExp(/(?<!\w+)[\s\t](\w+)\s\=\s(.*)?\;/g);
+	const varWithoutATypeRegexp = new RegExp(/(?<!\w+)[\s\t](\w+)\s(\=\s.*)?\;/g);
 
 	for (let varWoType of content.matchAll(varWithoutATypeRegexp)) {
 		const theVar = varWoType[1];
@@ -195,24 +220,28 @@ const getTypeFixStorage = (content: string) => {
 		}
 		//for strings and addresses and bytes
 		if (theRightSide.match(/["'](.*)?["']/)) {
-			const theStringOrAddressOrBytes = theRightSide.match(/["'](.*)?["']/)![1];
+			console.log(theRightSide);
 
-			if (theStringOrAddressOrBytes[0] === '0' && theStringOrAddressOrBytes[1] === 'x') {
-				// an address
-				if (theStringOrAddressOrBytes.length === 42) {
-					tempString = varWoType[0].replace(theVar, `address public constant ${theVar}`);
-					content = content.replace(varWoType[0], tempString);
-					content = content.replace(theRightSide, theStringOrAddressOrBytes);
-					// bytes
+			const theStringOrAddressOrBytes = theRightSide.match(/\=\s["']([A-Za-z0-9]+)["']/);
+			if (theStringOrAddressOrBytes?.length) {
+				const theMatch = theStringOrAddressOrBytes[1];
+				if (theMatch[0] === '0' && theMatch[1] === 'x') {
+					// an address
+					if (theMatch.length === 42) {
+						tempString = varWoType[0].replace(theVar, `address public constant ${theVar}`);
+						content = content.replace(varWoType[0], tempString);
+						content = content.replace(theRightSide, `= ${theMatch}`);
+						// bytes
+					} else {
+						tempString = varWoType[0].replace(theVar, `bytes public constant ${theVar}`);
+						content = content.replace(varWoType[0], tempString);
+						content = content.replace(theRightSide, `= ${theMatch}`);
+					}
+					// a string
 				} else {
-					tempString = varWoType[0].replace(theVar, `bytes public constant ${theVar}`);
+					tempString = varWoType[0].replace(theVar, `string public constant ${theVar} =`);
 					content = content.replace(varWoType[0], tempString);
-					content = content.replace(theRightSide, theStringOrAddressOrBytes);
 				}
-				// a string
-			} else {
-				tempString = varWoType[0].replace(theVar, `string public constant ${theVar}`);
-				content = content.replace(varWoType[0], tempString);
 			}
 		}
 	}
@@ -255,8 +284,10 @@ export const getSignersReplace = (content: string, declarationStorageVars: strin
 	for (let signersFullString of content.matchAll(getSignersRegexp)) {
 		const signers = signersFullString[1].split(', ');
 		for (let signer of signers) {
-			newSignersLine += `address ${signer} = makeAddr("${signer}");\n`;
-			declarationStorageVars.push(`address ${signer} = makeAddr("${signer}")`);
+			const lowerCaseSigner = signer[0].toLowerCase() + signer.slice(1);
+
+			newSignersLine += `address ${lowerCaseSigner} = makeAddr("${lowerCaseSigner}");\n`;
+			declarationStorageVars.push(`address ${lowerCaseSigner} = makeAddr("${lowerCaseSigner}")`);
 		}
 	}
 
