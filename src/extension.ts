@@ -19,6 +19,19 @@ const excludePattern = [
 	'**/.yarn/**',
 	'**/hh-cache/**',
 ];
+const excludeFindScopeFilesPattern = [
+	'**/node_modules/**',
+	'**/out/**',
+	'**/.git/**',
+	'**/artifacts/**',
+	'**/coverage/**',
+	'**/cache_forge/**',
+	'**/cache/**',
+	'**/.github/**',
+	'**/.vscode/**',
+	'**/.yarn/**',
+	'**/hh-cache/**',
+];
 
 const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 
@@ -399,7 +412,7 @@ export function activate(context: ExtensionContext) {
 				}
 				const scopeFileName = path.basename(line.replace('\r', ''));
 
-				const findScopeFiles = await workspace.findFiles(`**/${scopeFileName}`, `{${excludePattern.join(',')}}`);
+				const findScopeFiles = await workspace.findFiles(`**/${scopeFileName}`, `{${excludeFindScopeFilesPattern.join(',')}}`);
 
 				if (findScopeFiles.length === 0) {
 					throw Error('File from the scope not found, aborting...');
