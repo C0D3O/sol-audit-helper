@@ -439,12 +439,16 @@ export function activate(context: ExtensionContext) {
 									: oldPath.replace(foundryBaseFolder, '');
 
 								console.log('OLDPATH', oldPath);
-								console.log(oldPath.split('/').slice(1)[0]);
+								console.log('SPLIT', oldPath.split('/'));
 
-								let newFilePathWithName =
-									oldPath.split('/').slice(1)[0] !== 'lib'
-										? foundryBaseFolder + '/' + oldPath.split('/').slice(1)[0] + '/scope/' + oldPath.split('/').slice(2).join('/')
-										: foundryBaseFolder + '/scope/' + oldPath.split('/').slice(2).join('/');
+								const theEditedPath = oldPath
+									.split('/')
+									.filter((pathPart) => !/\blib|src\b/.test(pathPart))
+									.join('/');
+								console.log('EDITED', theEditedPath);
+
+								let newFilePathWithName = foundryBaseFolder + '/src/scope' + theEditedPath;
+
 								let newFilePath = newFilePathWithName.slice(0, newFilePathWithName.lastIndexOf('/'));
 
 								console.log(newFilePath);
