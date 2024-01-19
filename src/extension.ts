@@ -438,9 +438,16 @@ export function activate(context: ExtensionContext) {
 									? oldPath.replaceAll('\\', '/').replace(foundryBaseFolder, '')
 									: oldPath.replace(foundryBaseFolder, '');
 
+								console.log('OLDPATH', oldPath);
+								console.log(oldPath.split('/').slice(1)[0]);
+
 								let newFilePathWithName =
-									foundryBaseFolder + '/' + oldPath.split('/').slice(1)[0] + '/scope/' + oldPath.split('/').slice(2).join('/');
+									oldPath.split('/').slice(1)[0] !== 'lib'
+										? foundryBaseFolder + '/' + oldPath.split('/').slice(1)[0] + '/scope/' + oldPath.split('/').slice(2).join('/')
+										: foundryBaseFolder + '/scope/' + oldPath.split('/').slice(2).join('/');
 								let newFilePath = newFilePathWithName.slice(0, newFilePathWithName.lastIndexOf('/'));
+
+								console.log(newFilePath);
 
 								if (!existsSync(newFilePath)) {
 									mkdirSync(newFilePath, { recursive: true });
