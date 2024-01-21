@@ -19,19 +19,19 @@ const excludePattern = [
 	'**/.yarn/**',
 	'**/hh-cache/**',
 ];
-const excludeFindScopeFilesPattern = [
-	'**/node_modules/**',
-	'**/out/**',
-	'**/.git/**',
-	'**/artifacts/**',
-	'**/coverage/**',
-	'**/cache_forge/**',
-	'**/cache/**',
-	'**/.github/**',
-	'**/.vscode/**',
-	'**/.yarn/**',
-	'**/hh-cache/**',
-];
+// const excludeFindScopeFilesPattern = [
+// 	'**/node_modules/**',
+// 	'**/out/**',
+// 	'**/.git/**',
+// 	'**/artifacts/**',
+// 	'**/coverage/**',
+// 	'**/cache_forge/**',
+// 	'**/cache/**',
+// 	'**/.github/**',
+// 	'**/.vscode/**',
+// 	'**/.yarn/**',
+// 	'**/hh-cache/**',
+// ];
 
 const cwd = osPathFixer(workspace.workspaceFolders![0].uri.path);
 
@@ -406,27 +406,38 @@ export function activate(context: ExtensionContext) {
 			const scopeFileContent = readFileSync(scopeFiles[0].fsPath, 'utf8');
 			const lines = scopeFileContent.split('\n');
 			let slocFiles: string[] = [];
+			// NEED TO MAKE THE EXTENSION CHECK IF ALL THE FILES ARE IN THE SCOPE AND IF SOME ARE NOT - ADD THEM TO THE SCOPE
+
+			let linesCounter = 0;
+			let filesInScopeCounter = 0;
+			let skippedLibFiles = '';
 			for await (let line of lines) {
 				if (line.replace('\r', '').length === 0) {
 					continue;
 				}
 				const scopeFileName = path.basename(line.replace('\r', ''));
 
-				const findScopeFiles = await workspace.findFiles(`**/${scopeFileName}`, `{${excludeFindScopeFilesPattern.join(',')}}`);
+				if (/lib\//.test(line)) {
+					// make the file of all skipped lib files from the scope
+					skippedLibFiles += `${scopeFileName}\n`;
+					continue;
+				}
+
+				const findScopeFiles = await workspace.findFiles(`**/${scopeFileName}`, `{${excludePattern.join(',')}}`);
 
 				if (findScopeFiles.length === 0) {
-					throw Error('File from the scope not found, aborting...');
+					throw Error(
+						`File ${scopeFileName} from the scope not found, aborting... Sometimes they want you to check the libs, so try installing the libs first and then run the extension again`
+					);
 				} else if (findScopeFiles.length > 1) {
 					throw Error('Duplicate from the scope found, aborting...');
 				}
 				let oldPath = findScopeFiles[0].fsPath;
 
 				if (oldPath.includes('scope')) {
-					console.log('@@@@@@@@@@@@ GLOBAL EDIT DISABLED @@@@@@@@@');
-
-					globalEditEnabled = false;
-					slocGenerate = false;
-					break;
+					filesInScopeCounter++;
+					linesCounter++;
+					continue;
 				} else {
 					await new Promise(async (resolve) => {
 						let success = false;
@@ -438,20 +449,14 @@ export function activate(context: ExtensionContext) {
 									? oldPath.replaceAll('\\', '/').replace(foundryBaseFolder, '')
 									: oldPath.replace(foundryBaseFolder, '');
 
-								console.log('OLDPATH', oldPath);
-								console.log('SPLIT', oldPath.split('/'));
-
 								const theEditedPath = oldPath
 									.split('/')
-									.filter((pathPart) => !/\blib|src\b/.test(pathPart))
+									.filter((pathPart) => !/\bsrc\b/.test(pathPart))
 									.join('/');
-								console.log('EDITED', theEditedPath);
 
 								let newFilePathWithName = foundryBaseFolder + '/src/scope' + theEditedPath;
 
 								let newFilePath = newFilePathWithName.slice(0, newFilePathWithName.lastIndexOf('/'));
-
-								console.log(newFilePath);
 
 								if (!existsSync(newFilePath)) {
 									mkdirSync(newFilePath, { recursive: true });
@@ -478,10 +483,17 @@ export function activate(context: ExtensionContext) {
 
 						resolve(true);
 					});
+					linesCounter++;
+				}
+				if (linesCounter === filesInScopeCounter) {
+					console.log('@@@@@@@@@@@@ GLOBAL EDIT DISABLED @@@@@@@@@');
+					globalEditEnabled = false;
+					slocGenerate = false;
 				}
 			}
-			// remove empty folders in the scope folder
-			//
+			// write skippedLibFiles list if needed
+			skippedLibFiles.length && writeFileSync(`${cwd}/!!!SKIPPED_FILES.txt`, skippedLibFiles);
+
 			slocGenerate && extSettings.get('slocReportFile') && (await generateSlocReport(cwd, slocFiles));
 
 			// START GLOBAL PATH EDITING
@@ -510,8 +522,8 @@ export function activate(context: ExtensionContext) {
 			} else if (error.message === 'Duplicate file from the scope list found, aborting...') {
 				await window.showInformationMessage('Duplicate from the scope found, aborting...');
 				return;
-			} else if (error.message === 'File from the scope not found, aborting...') {
-				await window.showInformationMessage('File from the scope not found, aborting...');
+			} else if (error.message.includes('from the scope not found, aborting...')) {
+				await window.showInformationMessage(error.message);
 				return;
 			} else if (error.message === 'No configs found') {
 				await window.showInformationMessage('No configs found, aborting... ');

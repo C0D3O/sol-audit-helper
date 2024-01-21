@@ -69,7 +69,6 @@ const diffLevelsLogic = (
 				for (let i = 0; i < currentFilePathLength - index; i++) {
 					theAddedPart = theAddedPart + '../';
 				}
-				console.log('ANOTHER PARTS LENGTH AFTER SHIFTING', anotherFilePathParts.length);
 
 				if (anotherFilePathParts.length) {
 					line = 'import ' + theBracesImport + '"' + theAddedPart + anotherFilePathParts.join('/') + '/' + depName + '";';
@@ -454,7 +453,6 @@ export const generateSlocReport = async (cwd: string, slocFiles: string[]) => {
 							.querySelectorAll('option')
 							.forEach((option) => {
 								if (option.value === value) {
-									console.log('true');
 									option.selected = true;
 								}
 							});
