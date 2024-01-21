@@ -4,6 +4,7 @@
 
 - Improved functionality
 - Added writing a txt file with a skipped file list from the scope IF the files are from a lib
+- Added logics to add files to the scope if for some reason they were missing at the prev run
 
 ## [0.9.3]
 
