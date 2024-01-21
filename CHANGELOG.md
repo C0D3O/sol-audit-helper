@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.9.33]
+
+- Improved functionality
+- Added writing a txt file with a skipped file list from the scope IF the files are from a lib
+
 ## [0.9.3]
 
 - Scope files folder structure preservation
